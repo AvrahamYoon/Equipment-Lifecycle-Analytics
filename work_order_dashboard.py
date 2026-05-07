@@ -4,10 +4,6 @@ Work Order Dashboard — Facilities Management
 Run:  pip install dash pandas plotly
       python work_order_dashboard.py
 Then open http://127.0.0.1:8050 in your browser.
-
-To add more months, place CSV files alongside this script and update
-the three load_* functions below.  The month dropdown will expand
-automatically once new data is loaded.
 """
 
 import math
@@ -18,16 +14,13 @@ import dash
 from dash import dcc, html, Input, Output, dash_table
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-# Update these paths to point to your actual CSV files.
 REQUESTS_CSV  = "Work_Orders_April_2026_Request.csv"
 SERVICE_CSV   = "April_Service_Orders_with_Prices.csv"
 REPAIRS_CSV   = "April_Repair_List_All_Work_Orders.csv"
 
 
 def load_requests(path: str) -> pd.DataFrame:
-    """Load the Work Order Request CSV."""
     raw = pd.read_csv(path, header=None)
-    # Row 0 is a title, row 1 is the real header
     raw.columns = raw.iloc[1]
     df = raw.iloc[2:].reset_index(drop=True)
     df = df[df["Work Order #"].notna() & ~df["Work Order #"].str.startswith("Total")]
@@ -37,21 +30,17 @@ def load_requests(path: str) -> pd.DataFrame:
 
 
 def load_service(path: str) -> pd.DataFrame:
-    """Load the Service Orders with Prices CSV."""
     df = pd.read_csv(path)
-    df["Sched. Date"]     = pd.to_datetime(df["Sched. Date"],     errors="coerce")
-    df["Completed Date"]  = pd.to_datetime(df["Completed Date"],  errors="coerce")
+    df["Sched. Date"]    = pd.to_datetime(df["Sched. Date"],    errors="coerce")
+    df["Completed Date"] = pd.to_datetime(df["Completed Date"], errors="coerce")
     df["month_key"] = df["Sched. Date"].dt.to_period("M").astype(str)
     return df
 
 
 def load_repairs(path: str) -> pd.DataFrame:
-    """Load the Repair List (All Work Orders) CSV."""
     raw = pd.read_csv(path, skiprows=1, header=None)
-    # Row 0 is the real column header
     raw.columns = raw.iloc[0]
     df = raw.iloc[1:].reset_index(drop=True)
-    # Keep only real data rows (exclude TOTALS / notes)
     df = df[df["#"].apply(lambda x: str(x).strip().isdigit())]
     df.columns = [c.replace("\n", " ").strip() for c in df.columns]
     df = df.rename(columns={
@@ -70,7 +59,6 @@ def load_repairs(path: str) -> pd.DataFrame:
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["month_key"] = df["date"].dt.to_period("M").astype(str)
 
-    # Map new-equipment prices by equipment type (update as needed)
     PRICE_MAP = {
         "versamatic": 1035,
         "lindhaus":    850,
@@ -82,7 +70,7 @@ def load_repairs(path: str) -> pd.DataFrame:
         for k, v in PRICE_MAP.items():
             if k in n:
                 return v
-        return 1035  # default
+        return 1035
     df["newPrice"] = df["equipment"].apply(get_price)
     return df
 
@@ -102,83 +90,165 @@ all_months = sorted(
 MONTH_OPTIONS = [{"label": pd.Period(m).strftime("%B %Y"), "value": m} for m in all_months]
 
 
-# ── Helper: replacement status ────────────────────────────────────────────────
+# ── Helper ────────────────────────────────────────────────────────────────────
 def replace_status(labor, parts, new_price):
     combined = labor + parts
     if combined * 0.80 >= new_price:
-        return "Replace 🔴"
+        return "Replace"
     if combined * 0.60 >= new_price:
-        return "Monitor 🟡"
-    return "Good 🟢"
+        return "Monitor"
+    return "Good"
 
 
-STATUS_BG = {
-    "Replace 🔴": "#fee2e2",
-    "Monitor 🟡": "#fef9c3",
-    "Good 🟢":    "#dcfce7",
+# ── Theme tokens ──────────────────────────────────────────────────────────────
+BG_PAGE    = "#f0f4f8"
+BG_CARD    = "#ffffff"
+BG_HEADER  = "#ffffff"
+COLOR_BORDER = "#e2e8f0"
+COLOR_TEXT_PRIMARY   = "#1e293b"
+COLOR_TEXT_SECONDARY = "#64748b"
+COLOR_TEXT_MUTED     = "#94a3b8"
+
+# Accent palette
+C_BLUE   = "#3b82f6"
+C_GREEN  = "#10b981"
+C_PURPLE = "#8b5cf6"
+C_ORANGE = "#f97316"
+C_YELLOW = "#f59e0b"
+C_PINK   = "#ec4899"
+
+CHART_FONT = dict(family="'DM Sans','Segoe UI',sans-serif", color=COLOR_TEXT_SECONDARY, size=12)
+
+CARD_STYLE = {
+    "background": BG_CARD,
+    "border": f"1px solid {COLOR_BORDER}",
+    "borderRadius": 14,
+    "boxShadow": "0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
 }
-
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = dash.Dash(__name__)
 app.title = "Work Order Dashboard"
 
 app.layout = html.Div([
+
     # ── Header ────────────────────────────────────────────────────────────────
     html.Div([
         html.Div([
-            html.P("FACILITIES MANAGEMENT", style={"fontSize":11,"letterSpacing":"0.15em","color":"#38bdf8","margin":0,"fontWeight":700}),
-            html.H1("Work Order Dashboard", style={"margin":"4px 0 0","fontSize":28,"color":"#f8fafc","fontWeight":800}),
-            html.P("Custodial Equipment Repair & Service Tracker", style={"margin":"4px 0 0","fontSize":13,"color":"#64748b"}),
+            html.Span("FACILITIES MANAGEMENT", style={
+                "fontSize": 10, "letterSpacing": "0.18em", "color": C_BLUE,
+                "fontWeight": 700, "textTransform": "uppercase",
+            }),
+            html.H1("Work Order Dashboard", style={
+                "margin": "4px 0 2px", "fontSize": 24,
+                "color": COLOR_TEXT_PRIMARY, "fontWeight": 800, "lineHeight": 1.2,
+            }),
+            html.Span("Custodial Equipment Repair & Service Tracker", style={
+                "fontSize": 13, "color": COLOR_TEXT_SECONDARY,
+            }),
         ]),
         html.Div([
-            html.Label("SELECT MONTH", style={"fontSize":11,"fontWeight":700,"color":"#94a3b8","letterSpacing":"0.1em","marginBottom":6,"display":"block"}),
+            html.Label("Month", style={
+                "fontSize": 11, "fontWeight": 600, "color": COLOR_TEXT_MUTED,
+                "letterSpacing": "0.08em", "textTransform": "uppercase",
+                "marginBottom": 5, "display": "block",
+            }),
             dcc.Dropdown(
                 id="month-select",
                 options=MONTH_OPTIONS,
                 value=all_months[0],
                 clearable=False,
-                style={"width":180,"fontFamily":"inherit"},
+                style={"width": 180, "fontFamily": "inherit", "fontSize": 13},
             ),
-        ], style={"marginTop":8}),
+        ]),
     ], style={
-        "display":"flex","justifyContent":"space-between","alignItems":"flex-start",
-        "flexWrap":"wrap","gap":16,"marginBottom":28,
-        "padding":"24px 24px 0",
+        "display": "flex", "justifyContent": "space-between", "alignItems": "center",
+        "flexWrap": "wrap", "gap": 16,
+        "background": BG_HEADER,
+        "borderBottom": f"1px solid {COLOR_BORDER}",
+        "padding": "20px 28px",
+        "boxShadow": "0 1px 3px rgba(0,0,0,0.05)",
     }),
 
-    # ── KPI Row ───────────────────────────────────────────────────────────────
-    html.Div(id="kpi-row", style={"display":"flex","flexWrap":"wrap","gap":14,"padding":"0 24px","marginBottom":20}),
-
-    # ── Middle: Hours bar + Calendar ──────────────────────────────────────────
+    # ── Body ──────────────────────────────────────────────────────────────────
     html.Div([
-        dcc.Graph(id="hours-chart", style={"flex":"1","minWidth":320}),
-        dcc.Graph(id="calendar-chart", style={"flex":"1","minWidth":320}),
-    ], style={"display":"flex","gap":16,"padding":"0 24px","marginBottom":20}),
 
-    # ── Replacement Table ─────────────────────────────────────────────────────
-    html.Div([
-        html.Div("🚦 Equipment Replacement Indicator",
-                 style={"fontSize":12,"fontWeight":700,"color":"#38bdf8","letterSpacing":"0.1em","textTransform":"uppercase","marginBottom":8}),
-        html.P("🔴 Red: (Labor+Parts)×0.80 ≥ New Price  |  🟡 Yellow: (Labor+Parts)×0.60 ≥ New Price  |  🟢 Green: Below threshold",
-               style={"fontSize":11,"color":"#94a3b8","marginBottom":12}),
-        dash_table.DataTable(
-            id="replace-table",
-            style_table={"overflowX":"auto"},
-            style_header={"backgroundColor":"#0f172a","color":"#64748b","fontWeight":"bold","fontSize":11},
-            style_cell={"backgroundColor":"#1e293b","color":"#e2e8f0","fontSize":13,"padding":"9px 12px","border":"1px solid #334155"},
-            style_data_conditional=[],
-        ),
-    ], style={"background":"#1e293b","border":"1px solid #1e3a5f","borderRadius":16,"padding":20,"margin":"0 24px","marginBottom":24}),
+        # KPI Row
+        html.Div(id="kpi-row", style={
+            "display": "flex", "flexWrap": "wrap", "gap": 14, "marginBottom": 20,
+        }),
 
-    # ── Footer ────────────────────────────────────────────────────────────────
-    html.Div(id="footer-text", style={"textAlign":"center","fontSize":11,"color":"#475569","paddingBottom":24}),
+        # Charts Row
+        html.Div([
+            html.Div([
+                dcc.Graph(id="hours-chart", config={"displayModeBar": False, "responsive": True},
+                          style={"height": 280}),
+            ], style={**CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"}),
+
+            html.Div([
+                dcc.Graph(id="calendar-chart", config={"displayModeBar": False, "responsive": True},
+                          style={"height": 280}),
+            ], style={**CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"}),
+        ], style={"display": "flex", "gap": 16, "marginBottom": 20}),
+
+        # Replacement Table
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Span("🚦", style={"fontSize": 16, "marginRight": 8}),
+                    html.Span("Equipment Replacement Indicator", style={
+                        "fontSize": 14, "fontWeight": 700, "color": COLOR_TEXT_PRIMARY,
+                    }),
+                ], style={"display": "flex", "alignItems": "center", "marginBottom": 6}),
+                html.Div([
+                    html.Span("🔴 Replace", style={"color": "#dc2626", "fontWeight": 600, "marginRight": 16}),
+                    html.Span("(Labor+Parts)×0.80 ≥ New Price", style={"color": COLOR_TEXT_MUTED, "marginRight": 24}),
+                    html.Span("🟡 Monitor", style={"color": "#d97706", "fontWeight": 600, "marginRight": 16}),
+                    html.Span("(Labor+Parts)×0.60 ≥ New Price", style={"color": COLOR_TEXT_MUTED, "marginRight": 24}),
+                    html.Span("🟢 Good", style={"color": "#059669", "fontWeight": 600, "marginRight": 16}),
+                    html.Span("Below threshold", style={"color": COLOR_TEXT_MUTED}),
+                ], style={"fontSize": 12, "marginBottom": 16, "flexWrap": "wrap", "display": "flex", "gap": 4}),
+            ]),
+            dash_table.DataTable(
+                id="replace-table",
+                style_table={"overflowX": "auto", "borderRadius": 10, "overflow": "hidden"},
+                style_header={
+                    "backgroundColor": "#f8fafc",
+                    "color": COLOR_TEXT_SECONDARY,
+                    "fontWeight": "700",
+                    "fontSize": 11,
+                    "textTransform": "uppercase",
+                    "letterSpacing": "0.06em",
+                    "borderBottom": f"2px solid {COLOR_BORDER}",
+                    "padding": "10px 14px",
+                    "border": "none",
+                },
+                style_cell={
+                    "backgroundColor": BG_CARD,
+                    "color": COLOR_TEXT_PRIMARY,
+                    "fontSize": 13,
+                    "padding": "10px 14px",
+                    "border": "none",
+                    "borderBottom": f"1px solid {COLOR_BORDER}",
+                    "fontFamily": "'DM Sans','Segoe UI',sans-serif",
+                },
+                style_data_conditional=[],
+            ),
+        ], style={**CARD_STYLE, "padding": "20px 20px 8px", "marginBottom": 20}),
+
+        # Footer
+        html.Div(id="footer-text", style={
+            "textAlign": "center", "fontSize": 11,
+            "color": COLOR_TEXT_MUTED, "paddingBottom": 8,
+        }),
+
+    ], style={"padding": "24px 28px", "maxWidth": 1400, "margin": "0 auto"}),
 
 ], style={
-    "minHeight":"100vh",
-    "background":"linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%)",
-    "fontFamily":"'DM Sans','Segoe UI',sans-serif",
-    "color":"#e2e8f0",
+    "minHeight": "100vh",
+    "background": BG_PAGE,
+    "fontFamily": "'DM Sans','Segoe UI',sans-serif",
+    "color": COLOR_TEXT_PRIMARY,
 })
 
 
@@ -206,24 +276,42 @@ def update_all(month_key):
     total_labor     = rep["labor"].sum()
     total_repair    = rep["total"].sum()
 
-    def kpi_card(label, value, icon, color):
+    def kpi_card(label, value, icon, accent):
         return html.Div([
-            html.Div(icon, style={"fontSize":22,"marginBottom":6}),
-            html.Div(str(value), style={"fontSize":22,"fontWeight":800,"color":color}),
-            html.Div(label, style={"fontSize":11,"color":"#64748b","fontWeight":600,"textTransform":"uppercase","letterSpacing":"0.05em","marginTop":4}),
+            html.Div([
+                html.Div(icon, style={"fontSize": 20}),
+                html.Div(style={
+                    "width": 6, "height": 6, "borderRadius": "50%",
+                    "background": accent, "marginLeft": "auto",
+                }),
+            ], style={"display": "flex", "alignItems": "center", "marginBottom": 12}),
+            html.Div(str(value), style={
+                "fontSize": 26, "fontWeight": 800,
+                "color": COLOR_TEXT_PRIMARY, "lineHeight": 1,
+            }),
+            html.Div(label, style={
+                "fontSize": 11, "color": COLOR_TEXT_SECONDARY,
+                "fontWeight": 600, "textTransform": "uppercase",
+                "letterSpacing": "0.05em", "marginTop": 6,
+            }),
+            html.Div(style={
+                "height": 3, "borderRadius": 2,
+                "background": accent, "marginTop": 14, "opacity": 0.7,
+            }),
         ], style={
-            "background":"linear-gradient(135deg,#1e293b,#0f172a)",
-            "border":"1px solid #1e3a5f","borderRadius":16,"padding":"18px 16px",
-            "minWidth":150,"flex":"1",
+            **CARD_STYLE,
+            "padding": "18px 18px 14px",
+            "minWidth": 140, "flex": "1",
+            "borderTop": f"3px solid {accent}",
         })
 
     kpis = [
-        kpi_card("Total Requests",         total_req,                       "📋", "#38bdf8"),
-        kpi_card("Work Orders Completed",  total_completed,                 "✅", "#34d399"),
-        kpi_card("Work Orders Scheduled",  total_scheduled,                 "📅", "#a78bfa"),
-        kpi_card("Total Repair Cost",      f"${total_repair:,.2f}",         "🔧", "#fb923c"),
-        kpi_card("Total Parts Cost",       f"${total_parts:,.2f}",          "⚙️", "#fbbf24"),
-        kpi_card("Total Labor Cost",       f"${total_labor:,.2f}",          "👷", "#f472b6"),
+        kpi_card("Total Requests",        total_req,              "📋", C_BLUE),
+        kpi_card("Completed",             total_completed,        "✅", C_GREEN),
+        kpi_card("Scheduled",             total_scheduled,        "📅", C_PURPLE),
+        kpi_card("Total Repair Cost",     f"${total_repair:,.2f}","🔧", C_ORANGE),
+        kpi_card("Parts Cost",            f"${total_parts:,.2f}", "⚙️", C_YELLOW),
+        kpi_card("Labor Cost",            f"${total_labor:,.2f}", "👷", C_PINK),
     ]
 
     # ── Hours by Equipment ────────────────────────────────────────────────────
@@ -237,31 +325,47 @@ def update_all(month_key):
 
     eq_names = list(hours_map.keys())
     eq_hours = [hours_map[k] for k in eq_names]
+    bar_colors = [C_BLUE, C_PURPLE, C_GREEN, "#06b6d4"][:len(eq_names)]
 
     hours_fig = go.Figure(go.Bar(
         x=eq_hours, y=eq_names, orientation="h",
-        marker=dict(color=["#2563eb","#38bdf8","#0ea5e9","#7dd3fc"][:len(eq_names)],
-                    line=dict(width=0)),
-        text=[f"{h:.1f} hrs" for h in eq_hours], textposition="auto",
+        marker=dict(
+            color=bar_colors,
+            opacity=0.85,
+            line=dict(width=0),
+        ),
+        text=[f"{h:.1f} hrs" for h in eq_hours],
+        textposition="outside",
+        textfont=dict(size=12, color=COLOR_TEXT_SECONDARY),
     ))
     hours_fig.update_layout(
-        title=dict(text="⏱ Repair Hours by Equipment Type", font=dict(color="#38bdf8",size=13)),
-        plot_bgcolor="#0f172a", paper_bgcolor="#1e293b",
-        font=dict(color="#cbd5e1", family="DM Sans"),
-        xaxis=dict(gridcolor="#1e3a5f",tickcolor="#475569",title="Hours"),
-        yaxis=dict(gridcolor="#1e3a5f",tickcolor="#475569"),
-        margin=dict(l=20,r=20,t=50,b=20),
+        title=dict(text="Repair Hours by Equipment", font=dict(color=COLOR_TEXT_PRIMARY, size=14, family="'DM Sans','Segoe UI',sans-serif"), x=0.02),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=CHART_FONT,
+        xaxis=dict(
+            gridcolor=COLOR_BORDER,
+            tickcolor=COLOR_TEXT_MUTED,
+            title=dict(text="Hours", font=dict(size=11, color=COLOR_TEXT_MUTED)),
+            zeroline=False,
+            showline=False,
+        ),
+        yaxis=dict(
+            gridcolor="rgba(0,0,0,0)",
+            tickcolor=COLOR_TEXT_MUTED,
+            showline=False,
+        ),
+        margin=dict(l=10, r=40, t=45, b=25),
+        bargap=0.35,
     )
 
     # ── Calendar Heatmap ──────────────────────────────────────────────────────
     period   = pd.Period(month_key)
     year, mo = period.year, period.month
-    first_wd = calendar.monthrange(year, mo)[0]   # 0=Monday…6=Sunday (Python)
-    # Convert to Sunday-first (0=Sun)
+    first_wd = calendar.monthrange(year, mo)[0]
     first_col = (first_wd + 1) % 7
     days_in_mo = calendar.monthrange(year, mo)[1]
 
-    # Count requests per day
     count_by_day = {}
     if not req.empty and "Request Date" in req.columns:
         for dt in req["Request Date"].dropna():
@@ -278,12 +382,16 @@ def update_all(month_key):
         texts.append(str(day))
         customdata.append(cnt)
         intensity = cnt / max_count if cnt else 0
-        if cnt == 0:         colors.append("#1e293b")
-        elif intensity < 0.2: colors.append("#bfdbfe")
-        elif intensity < 0.4: colors.append("#93c5fd")
-        elif intensity < 0.6: colors.append("#60a5fa")
-        elif intensity < 0.8: colors.append("#2563eb")
-        else:                  colors.append("#1e3a5f")
+        if cnt == 0:
+            colors.append("#f1f5f9")
+        elif intensity < 0.25:
+            colors.append("#bfdbfe")
+        elif intensity < 0.5:
+            colors.append("#93c5fd")
+        elif intensity < 0.75:
+            colors.append("#60a5fa")
+        else:
+            colors.append(C_BLUE)
         col += 1
         if col > 6:
             col = 0; row_i += 1
@@ -294,20 +402,33 @@ def update_all(month_key):
     cal_fig.add_trace(go.Scatter(
         x=cols, y=[max_row - r for r in rows],
         mode="markers+text",
-        marker=dict(size=30, color=colors, symbol="square", line=dict(color="#0f172a",width=2)),
+        marker=dict(
+            size=32, color=colors, symbol="square",
+            line=dict(color="#e2e8f0", width=1.5),
+        ),
         text=texts, textposition="middle center",
-        textfont=dict(color="#f8fafc", size=11, family="DM Sans"),
+        textfont=dict(color=COLOR_TEXT_PRIMARY, size=11, family="'DM Sans','Segoe UI',sans-serif"),
         customdata=customdata,
         hovertemplate="%{text} — %{customdata} request(s)<extra></extra>",
     ))
     day_names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
     cal_fig.update_layout(
-        title=dict(text=f"📆 Request Volume — {period.strftime('%B %Y')}", font=dict(color="#38bdf8",size=13)),
-        plot_bgcolor="#0f172a", paper_bgcolor="#1e293b",
-        font=dict(color="#cbd5e1", family="DM Sans"),
-        xaxis=dict(tickvals=list(range(7)), ticktext=day_names, showgrid=False, zeroline=False),
-        yaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
-        margin=dict(l=10,r=10,t=50,b=10),
+        title=dict(
+            text=f"Request Volume — {period.strftime('%B %Y')}",
+            font=dict(color=COLOR_TEXT_PRIMARY, size=14, family="'DM Sans','Segoe UI',sans-serif"),
+            x=0.02,
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=CHART_FONT,
+        xaxis=dict(
+            tickvals=list(range(7)), ticktext=day_names,
+            showgrid=False, zeroline=False,
+            tickfont=dict(color=COLOR_TEXT_SECONDARY, size=11),
+            showline=False,
+        ),
+        yaxis=dict(showticklabels=False, showgrid=False, zeroline=False, showline=False),
+        margin=dict(l=10, r=10, t=45, b=10),
         showlegend=False,
     )
 
@@ -320,29 +441,53 @@ def update_all(month_key):
         labor=("labor","sum"),
     ).reset_index(drop=True)
 
-    agg["Total Cost"] = agg["labor"] + agg["parts"]
-    agg["80% Threshold"] = agg["Total Cost"] * 0.80
-    agg["60% Threshold"] = agg["Total Cost"] * 0.60
-    agg["Status"] = agg.apply(lambda r: replace_status(r["labor"], r["parts"], r["newPrice"]), axis=1)
+    agg["Total Cost"]     = agg["labor"] + agg["parts"]
+    agg["80% Threshold"]  = agg["Total Cost"] * 0.80
+    agg["60% Threshold"]  = agg["Total Cost"] * 0.60
+    agg["Status"]         = agg.apply(lambda r: replace_status(r["labor"], r["parts"], r["newPrice"]), axis=1)
     agg = agg.sort_values("Status")
 
     table_data = agg.rename(columns={
-        "equipment":"Equipment","equipId":"ID","newPrice":"New Price",
-        "parts":"Parts Cost","labor":"Labor Cost",
+        "equipment": "Equipment", "equipId": "ID", "newPrice": "New Price",
+        "parts": "Parts Cost",   "labor":   "Labor Cost",
     })[["Status","Equipment","ID","Parts Cost","Labor Cost","Total Cost","New Price","80% Threshold","60% Threshold"]].copy()
-    for col in ["Parts Cost","Labor Cost","Total Cost","New Price","80% Threshold","60% Threshold"]:
-        table_data[col] = table_data[col].apply(lambda x: f"${x:,.2f}")
+
+    for c in ["Parts Cost","Labor Cost","Total Cost","New Price","80% Threshold","60% Threshold"]:
+        table_data[c] = table_data[c].apply(lambda x: f"${x:,.2f}")
+
     records = table_data.to_dict("records")
     columns = [{"name": c, "id": c} for c in table_data.columns]
 
-    cond_style = []
-    for status, bg in STATUS_BG.items():
-        cond_style.append({
-            "if": {"filter_query": f'{{Status}} = "{status}"'},
-            "backgroundColor": bg, "color": "#111",
-        })
+    STATUS_STYLES = {
+        "Replace": {"bg": "#fef2f2", "color": "#dc2626", "badge": "🔴 Replace"},
+        "Monitor": {"bg": "#fffbeb", "color": "#d97706", "badge": "🟡 Monitor"},
+        "Good":    {"bg": "#f0fdf4", "color": "#059669", "badge": "🟢 Good"},
+    }
 
-    footer = f"Data reflects {period.strftime('%B %Y')} · {len(rep)} repair records · {len(svc)} service orders"
+    # Inject badge text into records
+    for r in records:
+        s = r.get("Status", "Good")
+        r["Status"] = STATUS_STYLES.get(s, STATUS_STYLES["Good"])["badge"]
+
+    cond_style = []
+    for status, style in STATUS_STYLES.items():
+        badge = style["badge"]
+        cond_style.append({
+            "if": {"filter_query": f'{{Status}} = "{badge}"'},
+            "backgroundColor": style["bg"],
+        })
+        cond_style.append({
+            "if": {"filter_query": f'{{Status}} = "{badge}"', "column_id": "Status"},
+            "color": style["color"],
+            "fontWeight": "700",
+        })
+    # Zebra stripe for non-status rows
+    cond_style.append({
+        "if": {"row_index": "odd"},
+        "backgroundColor": "#fafbfc",
+    })
+
+    footer = f"Data reflects {period.strftime('%B %Y')}  ·  {len(rep)} repair records  ·  {len(svc)} service orders"
     return kpis, hours_fig, cal_fig, columns, records, cond_style, footer
 
 
