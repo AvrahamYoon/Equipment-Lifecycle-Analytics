@@ -191,6 +191,24 @@ app.layout = html.Div([
             ], style={**CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"}),
         ], style={"display": "flex", "gap": 16, "marginBottom": 20}),
 
+        # Gauge + Staff Row
+        html.Div([
+            html.Div([
+                dcc.Graph(id="completion-gauge", config={"displayModeBar": False, "responsive": True},
+                          style={"height": 260}),
+            ], style={**CARD_STYLE, "flex": "1", "minWidth": 240, "padding": "16px 8px 8px"}),
+
+            html.Div([
+                dcc.Graph(id="avghours-gauge", config={"displayModeBar": False, "responsive": True},
+                          style={"height": 260}),
+            ], style={**CARD_STYLE, "flex": "1", "minWidth": 240, "padding": "16px 8px 8px"}),
+
+            html.Div([
+                dcc.Graph(id="staff-chart", config={"displayModeBar": False, "responsive": True},
+                          style={"height": 260}),
+            ], style={**CARD_STYLE, "flex": "2", "minWidth": 320, "padding": "16px 8px 8px"}),
+        ], style={"display": "flex", "gap": 16, "marginBottom": 20}),
+
         # Replacement Table
         html.Div([
             html.Div([
@@ -257,6 +275,9 @@ app.layout = html.Div([
     Output("kpi-row", "children"),
     Output("hours-chart", "figure"),
     Output("calendar-chart", "figure"),
+    Output("completion-gauge", "figure"),
+    Output("avghours-gauge", "figure"),
+    Output("staff-chart", "figure"),
     Output("replace-table", "columns"),
     Output("replace-table", "data"),
     Output("replace-table", "style_data_conditional"),
@@ -275,6 +296,12 @@ def update_all(month_key):
     total_parts     = rep["parts"].sum()
     total_labor     = rep["labor"].sum()
     total_repair    = rep["total"].sum()
+
+    total_svc       = total_completed + total_scheduled
+    completion_rate = f"{total_completed / total_svc * 100:.0f}%" if total_svc > 0 else "N/A"
+    total_hours     = rep["hours"].sum()
+    repair_count    = len(rep)
+    avg_hours       = f"{total_hours / repair_count:.1f} hrs" if repair_count > 0 else "N/A"
 
     def kpi_card(label, value, icon, accent):
         return html.Div([
@@ -309,9 +336,9 @@ def update_all(month_key):
         kpi_card("Total Requests",        total_req,              "📋", C_BLUE),
         kpi_card("Completed",             total_completed,        "✅", C_GREEN),
         kpi_card("Scheduled",             total_scheduled,        "📅", C_PURPLE),
-        kpi_card("Total Repair Cost",     f"${total_repair:,.2f}","🔧", C_ORANGE),
+        kpi_card("Total Repair Cost",     f"${total_repair:,.2f}","💰", C_ORANGE),
         kpi_card("Parts Cost",            f"${total_parts:,.2f}", "⚙️", C_YELLOW),
-        kpi_card("Labor Cost",            f"${total_labor:,.2f}", "👷", C_PINK),
+        kpi_card("Labor Cost",            f"${total_labor:,.2f}",  "👤", C_PINK),
     ]
 
     # ── Hours by Equipment ────────────────────────────────────────────────────
@@ -488,7 +515,121 @@ def update_all(month_key):
     })
 
     footer = f"Data reflects {period.strftime('%B %Y')}  ·  {len(rep)} repair records  ·  {len(svc)} service orders"
-    return kpis, hours_fig, cal_fig, columns, records, cond_style, footer
+
+    # ── Completion Rate Gauge ─────────────────────────────────────────────────
+    rate_val = (total_completed / total_svc * 100) if total_svc > 0 else 0
+    gauge_color = C_GREEN if rate_val >= 80 else C_YELLOW if rate_val >= 50 else "#ef4444"
+    completion_fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=rate_val,
+        number={"suffix": "%", "font": {"size": 32, "color": COLOR_TEXT_PRIMARY, "family": "'DM Sans','Segoe UI',sans-serif"}},
+        title={"text": "Completion Rate", "font": {"size": 13, "color": COLOR_TEXT_SECONDARY, "family": "'DM Sans','Segoe UI',sans-serif"}},
+        gauge={
+            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": COLOR_TEXT_MUTED,
+                     "tickfont": {"size": 10, "color": COLOR_TEXT_MUTED}},
+            "bar": {"color": gauge_color, "thickness": 0.25},
+            "bgcolor": "white",
+            "borderwidth": 0,
+            "steps": [
+                {"range": [0, 50],  "color": "#fef2f2"},
+                {"range": [50, 80], "color": "#fffbeb"},
+                {"range": [80, 100],"color": "#f0fdf4"},
+            ],
+            "threshold": {"line": {"color": gauge_color, "width": 3}, "thickness": 0.75, "value": rate_val},
+        },
+    ))
+    completion_fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=20, r=20, t=50, b=10), height=260,
+    )
+
+    # ── Avg Hours Gauge ───────────────────────────────────────────────────────
+    avg_val = (total_hours / repair_count) if repair_count > 0 else 0
+    max_gauge = max(avg_val * 2, 4)
+    avg_color = C_BLUE if avg_val < max_gauge * 0.5 else C_ORANGE if avg_val < max_gauge * 0.75 else "#ef4444"
+    avghours_fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=avg_val,
+        number={"suffix": " hrs", "valueformat": ".1f", "font": {"size": 32, "color": COLOR_TEXT_PRIMARY, "family": "'DM Sans','Segoe UI',sans-serif"}},
+        title={"text": "Avg Repair Hours", "font": {"size": 13, "color": COLOR_TEXT_SECONDARY, "family": "'DM Sans','Segoe UI',sans-serif"}},
+        gauge={
+            "axis": {"range": [0, max_gauge], "tickwidth": 1, "tickcolor": COLOR_TEXT_MUTED,
+                     "tickfont": {"size": 10, "color": COLOR_TEXT_MUTED}},
+            "bar": {"color": avg_color, "thickness": 0.25},
+            "bgcolor": "white",
+            "borderwidth": 0,
+            "steps": [
+                {"range": [0,              max_gauge * 0.5],  "color": "#f0fdf4"},
+                {"range": [max_gauge * 0.5, max_gauge * 0.75],"color": "#fffbeb"},
+                {"range": [max_gauge * 0.75, max_gauge],       "color": "#fef2f2"},
+            ],
+            "threshold": {"line": {"color": avg_color, "width": 3}, "thickness": 0.75, "value": avg_val},
+        },
+    ))
+    avghours_fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=20, r=20, t=50, b=10), height=260,
+    )
+
+    # ── Capacity Utilization Chart ────────────────────────────────────────────
+    STAFF_COUNT   = 4
+    HOURS_PER_DAY = 4
+    WORK_DAYS     = 20
+    capacity      = STAFF_COUNT * HOURS_PER_DAY * WORK_DAYS   # 320 hrs
+    used          = rep["hours"].sum()
+    remaining     = max(capacity - used, 0)
+    util_pct      = used / capacity * 100 if capacity > 0 else 0
+
+    util_color = C_GREEN if util_pct < 50 else C_YELLOW if util_pct < 80 else "#ef4444"
+
+    staff_fig = go.Figure()
+    # Used bar
+    staff_fig.add_trace(go.Bar(
+        x=[used], y=["Capacity"],
+        orientation="h",
+        name="Used on Repairs",
+        marker=dict(color=util_color, opacity=0.9, line=dict(width=0)),
+        text=[f"{used:.1f} hrs ({util_pct:.1f}%)"],
+        textposition="inside",
+        insidetextanchor="middle",
+        textfont=dict(size=12, color="white", family="'DM Sans','Segoe UI',sans-serif"),
+    ))
+    # Remaining bar
+    staff_fig.add_trace(go.Bar(
+        x=[remaining], y=["Capacity"],
+        orientation="h",
+        name="Available",
+        marker=dict(color=COLOR_BORDER, opacity=0.6, line=dict(width=0)),
+        text=[f"{remaining:.0f} hrs remaining"],
+        textposition="inside",
+        insidetextanchor="middle",
+        textfont=dict(size=12, color=COLOR_TEXT_MUTED, family="'DM Sans','Segoe UI',sans-serif"),
+    ))
+    staff_fig.update_layout(
+        title=dict(
+            text=f"Staff Capacity Utilization  ·  {STAFF_COUNT} staff × {HOURS_PER_DAY} hrs × {WORK_DAYS} days = {capacity} hrs",
+            font=dict(color=COLOR_TEXT_PRIMARY, size=13, family="'DM Sans','Segoe UI',sans-serif"),
+            x=0.02,
+        ),
+        barmode="stack",
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        font=CHART_FONT,
+        xaxis=dict(
+            range=[0, capacity],
+            gridcolor=COLOR_BORDER, zeroline=False, showline=False,
+            title=dict(text="Hours", font=dict(size=11, color=COLOR_TEXT_MUTED)),
+            tickfont=dict(size=11, color=COLOR_TEXT_MUTED),
+        ),
+        yaxis=dict(showticklabels=False, showgrid=False, zeroline=False, showline=False),
+        legend=dict(
+            orientation="h", x=0.02, y=-0.15,
+            font=dict(size=11, color=COLOR_TEXT_SECONDARY),
+        ),
+        margin=dict(l=10, r=20, t=50, b=40),
+        height=260,
+    )
+
+    return kpis, hours_fig, cal_fig, completion_fig, avghours_fig, staff_fig, columns, records, cond_style, footer
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
