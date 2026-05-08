@@ -334,7 +334,7 @@ def update_all(month_key):
 
     kpis = [
         kpi_card("Total Requests",        total_req,              "📋", C_BLUE),
-        kpi_card("Completed",             total_completed,        "✅", C_GREEN),
+        kpi_card("Completed / Total", f"{total_completed}/{total_svc}", "✅", C_GREEN),
         kpi_card("Scheduled",             total_scheduled,        "📅", C_PURPLE),
         kpi_card("Total Repair Cost",     f"${total_repair:,.2f}","💰", C_ORANGE),
         kpi_card("Parts Cost",            f"${total_parts:,.2f}", "⚙️", C_YELLOW),
