@@ -1,5 +1,5 @@
 """
-Work Order Dashboard — Facilities Management
+Work Order Dashboard — Facilities Management Services
 ============================================
 Run:  pip install dash pandas plotly
       python work_order_dashboard.py
@@ -8,15 +8,53 @@ Then open http://127.0.0.1:8050 in your browser.
 
 import math
 import calendar
+import glob
+import os
 import pandas as pd
 import plotly.graph_objects as go
 import dash
 from dash import dcc, html, Input, Output, dash_table
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-REQUESTS_CSV  = "Work_Orders_April_2026_Request.csv"
-SERVICE_CSV   = "April_Service_Orders_with_Prices.csv"
-REPAIRS_CSV   = "April_Repair_List_All_Work_Orders.csv"
+# Put exports under these folders (one type per folder). Every *.csv in a folder
+# is loaded and concatenated (e.g. one file per month). Filenames are free-form.
+REQUESTS_DIR = os.path.join("data", "requests")
+SERVICE_DIR = os.path.join("data", "service")
+REPAIRS_DIR = os.path.join("data", "repairs")
+
+
+def _csv_paths_in_dir(directory: str) -> list[str]:
+    if not os.path.isdir(directory):
+        return []
+    paths = sorted(glob.glob(os.path.join(directory, "*.csv")))
+    return [p for p in paths if os.path.isfile(p)]
+
+
+def _load_requests_merged() -> pd.DataFrame:
+    paths = _csv_paths_in_dir(REQUESTS_DIR)
+    if not paths:
+        raise FileNotFoundError(
+            f"No *.csv under {REQUESTS_DIR!r}. Create the folder and add at least one request export."
+        )
+    return pd.concat([load_requests(p) for p in paths], ignore_index=True)
+
+
+def _load_service_merged() -> pd.DataFrame:
+    paths = _csv_paths_in_dir(SERVICE_DIR)
+    if not paths:
+        raise FileNotFoundError(
+            f"No *.csv under {SERVICE_DIR!r}. Create the folder and add at least one service export."
+        )
+    return pd.concat([load_service(p) for p in paths], ignore_index=True)
+
+
+def _load_repairs_merged() -> pd.DataFrame:
+    paths = _csv_paths_in_dir(REPAIRS_DIR)
+    if not paths:
+        raise FileNotFoundError(
+            f"No *.csv under {REPAIRS_DIR!r}. Create the folder and add at least one repair export."
+        )
+    return pd.concat([load_repairs(p) for p in paths], ignore_index=True)
 
 
 def load_requests(path: str) -> pd.DataFrame:
@@ -77,11 +115,15 @@ def load_repairs(path: str) -> pd.DataFrame:
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 try:
-    df_req     = load_requests(REQUESTS_CSV)
-    df_service = load_service(SERVICE_CSV)
-    df_repairs = load_repairs(REPAIRS_CSV)
+    df_req = _load_requests_merged()
+    df_service = _load_service_merged()
+    df_repairs = _load_repairs_merged()
 except FileNotFoundError as e:
-    raise SystemExit(f"CSV not found: {e}\nMake sure the CSV files are in the same folder as this script.")
+    raise SystemExit(
+        f"{e}\n"
+        "Add one or more *.csv files under data/requests, data/service, and data/repairs "
+        "(run the script from the project root so those paths resolve)."
+    ) from e
 
 all_months = sorted(
     m for m in (set(df_req["month_key"]) | set(df_service["month_key"]) | set(df_repairs["month_key"]))
