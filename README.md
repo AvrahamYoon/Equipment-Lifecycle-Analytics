@@ -1,14 +1,18 @@
 # Equipment Lifecycle Analytics
 
-Simple Python tools for work order analysis and equipment data cleanup.
+Python utilities for work-order analytics (Dash dashboard) and equipment list cleanup.
 
-## Project Structure
+## Layout
 
-- `work_order_dashboard.py` - Dash/Plotly web dashboard for repair and service metrics.
-- `list_clean.py` - CSV cleaner for equipment lists (dedupe, normalize fields, export summary).
-- `Work_Orders_April_2026_Request.csv` - request work orders input.
-- `April_Service_Orders_with_Prices.csv` - service orders input.
-- `April_Repair_List_All_Work_Orders.csv` - repair records input.
+| Path | Role |
+|------|------|
+| `work_order_dashboard.py` | Web app: reads CSVs, month filter, KPIs, charts, replacement table |
+| `list_clean.py` | Batch-clean equipment CSVs from `input/` → `Output/` |
+| `data/requests/*.csv` | Work **request** exports (same column layout as your source system) |
+| `data/service/*.csv` | **Service** order exports |
+| `data/repairs/*.csv` | **Repair** work order exports |
+
+Use **any filenames** you like. Every `*.csv` in a folder is loaded and merged; add more files (e.g. one per month) as you go.
 
 ## Requirements
 
@@ -18,35 +22,37 @@ pip install dash pandas plotly
 
 Python 3.10+ recommended.
 
-## Run Dashboard
+## Run the dashboard
 
-Keep the three dashboard CSV files in the project root, then run:
+1. Ensure these folders exist and each contains **at least one** `.csv`:
+   - `data/requests/`
+   - `data/service/`
+   - `data/repairs/`
+2. From the **project root**:
 
 ```bash
 python work_order_dashboard.py
 ```
 
-Open: `http://127.0.0.1:8050`
+Open `http://127.0.0.1:8050`.
 
-## Run Data Cleaner
+If startup fails with “No *.csv under …”, create the missing folder or add exports there. Run from the repo root so `data/...` paths resolve.
 
-1. Put source CSV files in `input/`.
+## Run the equipment cleaner
+
+1. Put raw equipment CSVs in `input/`.
 2. Run:
 
 ```bash
 python list_clean.py
 ```
 
-Outputs are written to `Output/`, including:
+Outputs: `Output/<name>_cleaned.csv` and `Output/all_equipment_summary.csv`.
 
-- per-file `*_cleaned.csv`
-- merged `all_equipment_summary.csv`
+## Replacement rule (dashboard)
 
-## Core Rule (Replacement Status)
+- **Replace** if `(labor + parts) * 0.80 >= newPrice`
+- **Monitor** if `(labor + parts) * 0.60 >= newPrice`
+- **Good** otherwise
 
-In the dashboard:
-
-- `Replace`: `(labor + parts) * 0.80 >= newPrice`
-- `Monitor`: `(labor + parts) * 0.60 >= newPrice`
-- `Good`: otherwise
-
+`newPrice` is inferred from equipment name (see `load_repairs` in `work_order_dashboard.py`).
