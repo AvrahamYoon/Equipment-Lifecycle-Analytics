@@ -177,7 +177,7 @@ app.layout = html.Div([
     # ── Header ────────────────────────────────────────────────────────────────
     html.Div([
         html.Div([
-            html.Span("Facilities Mnagement Services", style={
+            html.Span("Facilities Management Services", style={
                 "fontSize": 10, "letterSpacing": "0.18em", "color": C_BLUE,
                 "fontWeight": 700, "textTransform": "uppercase",
             }),
