@@ -7,7 +7,9 @@ Python utilities for work-order analytics (Dash dashboard) and equipment list cl
 | Path | Role |
 |------|------|
 | `work_order_dashboard.py` | Web app: reads CSVs, month filter, KPIs, charts, replacement table |
-| `list_clean.py` | Batch-clean equipment CSVs from `input/` → `Output/` |
+| `list_clean.py` | Batch-clean Compuclean equipment exports: `data/equipment/raw/` → `data/equipment/cleaned/` |
+| `data/equipment/raw/*.csv` | **Raw** equipment list downloads (before clean) |
+| `data/equipment/cleaned/*.csv` | **Cleaned** per-file outputs + `all_equipment_summary.csv` |
 | `data/requests/*.csv` | Work **request** exports (same column layout as your source system) |
 | `data/service/*.csv` | **Service** order exports |
 | `data/repairs/*.csv` | **Repair** work order exports |
@@ -40,14 +42,17 @@ If startup fails with “No *.csv under …”, create the missing folder or add
 
 ## Run the equipment cleaner
 
-1. Put raw equipment CSVs in `input/`.
-2. Run:
+1. Put Compuclean equipment exports in `data/equipment/raw/` (any `*.csv` filenames).
+2. From the project root:
 
 ```bash
 python list_clean.py
 ```
 
-Outputs: `Output/<name>_cleaned.csv` and `Output/all_equipment_summary.csv`.
+Outputs in `data/equipment/cleaned/`:
+
+- `<original_name>_cleaned.csv` per input file  
+- `all_equipment_summary.csv` merged and deduped by `EquipmentId`
 
 ## Replacement rule (dashboard)
 
