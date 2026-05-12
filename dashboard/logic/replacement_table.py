@@ -3,10 +3,14 @@
 import pandas as pd
 
 from dashboard import constants as C
+from dashboard.logic.overview.settings_merge import merge_app_settings, replace_status_icons
 
 
-def build_replacement_table(rep: pd.DataFrame):
+def build_replacement_table(rep: pd.DataFrame, app_settings=None):
     """Returns (columns, records, style_data_conditional) for Dash DataTable."""
+    merged = merge_app_settings(app_settings)
+    ico = replace_status_icons(merged)
+
     agg = rep.groupby("equipId").agg(
         equipment=("equipment", "first"),
         equipId=("equipId", "first"),
@@ -60,9 +64,21 @@ def build_replacement_table(rep: pd.DataFrame):
     columns = [{"name": c, "id": c} for c in table_data.columns]
 
     status_styles = {
-        "Replace": {"bg": "#fef2f2", "color": "#dc2626", "badge": "🔴 Replace"},
-        "Monitor": {"bg": "#fffbeb", "color": "#d97706", "badge": "🟡 Monitor"},
-        "Good": {"bg": "#f0fdf4", "color": "#059669", "badge": "🟢 Good"},
+        "Replace": {
+            "bg": "#fef2f2",
+            "color": "#dc2626",
+            "badge": f'{ico["Replace"]} Replace',
+        },
+        "Monitor": {
+            "bg": "#fffbeb",
+            "color": "#d97706",
+            "badge": f'{ico["Monitor"]} Monitor',
+        },
+        "Good": {
+            "bg": "#f0fdf4",
+            "color": "#059669",
+            "badge": f'{ico["Good"]} Good',
+        },
     }
 
     for r in records:

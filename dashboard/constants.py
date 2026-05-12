@@ -9,6 +9,38 @@ EQUIPMENT_SUMMARY_CSV = os.path.join("data", "equipment", "cleaned", "all_equipm
 
 BASE_AVAIL_DAYS = 311
 
+DEFAULT_STAFF_COUNT = 4
+DEFAULT_HOURS_PER_STAFF_DAY = 4
+DEFAULT_WORK_DAYS_PER_MONTH = 20
+
+
+def default_app_settings():
+    """Defaults for user-tunable dashboard assumptions (persisted via dcc.Store)."""
+    return {
+        "staffCount": DEFAULT_STAFF_COUNT,
+        "hoursPerDay": DEFAULT_HOURS_PER_STAFF_DAY,
+        "workDays": DEFAULT_WORK_DAYS_PER_MONTH,
+        "baseAvailDays": int(BASE_AVAIL_DAYS),
+        "weekStartsOn": "sunday",
+        # Icons (UTF-8 text / emoji); trimmed in merge_app_settings
+        "iconKpiRequests": "📋",
+        "iconKpiCompleted": "✅",
+        "iconKpiScheduled": "📅",
+        "iconKpiRepairCost": "💰",
+        "iconKpiParts": "⚙️",
+        "iconKpiLabor": "👤",
+        "iconNavOverview": "📊",
+        "iconNavReplacement": "🚦",
+        "iconNavSettings": "⚙️",
+        "iconReplaceTitle": "🚦",
+        "iconReplaceStatusReplace": "🔴",
+        "iconReplaceStatusMonitor": "🟡",
+        "iconReplaceStatusGood": "🟢",
+        # month_key (str) -> { staffCount, hoursPerDay, workDays }; months not listed use top-level defaults
+        "staffCapacityByMonth": {},
+    }
+
+
 CHART_CLASS_ORDER = [
     "Versamatic",
     "Lindhaus",
