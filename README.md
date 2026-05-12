@@ -6,7 +6,8 @@ Python utilities for work-order analytics (Dash dashboard) and equipment list cl
 
 | Path | Role |
 |------|------|
-| `work_order_dashboard.py` | Web app: reads CSVs, month filter, KPIs, charts, replacement table |
+| `work_order_dashboard.py` | Launches the Dash app (implementation in `dashboard/`) |
+| `dashboard/` | App package: `app.py`, `layouts/shell.py` (nav + pages), `callbacks/wiring.py`, `data_loaders.py`, `logic/` (charts + replacement table), `constants.py`, `taxonomy.py`, `calendar_util.py` |
 | `list_clean.py` | Batch-clean Compuclean equipment exports: `data/equipment/raw/` → `data/equipment/cleaned/` |
 | `data/equipment/raw/*.csv` | **Raw** equipment list downloads (before clean) |
 | `data/equipment/cleaned/*.csv` | **Cleaned** per-file outputs + `all_equipment_summary.csv` |
@@ -36,7 +37,7 @@ Python 3.10+ recommended.
 python work_order_dashboard.py
 ```
 
-Open `http://127.0.0.1:8050`.
+Open `http://127.0.0.1:8050`. Use the **left nav**: **Overview** (KPIs + charts) and **Replacement table** (large indicator table on its own page).
 
 If startup fails with “No *.csv under …”, create the missing folder or add exports there. Run from the repo root so `data/...` paths resolve.
 
@@ -60,4 +61,4 @@ Outputs in `data/equipment/cleaned/`:
 - **Monitor** if `(labor + parts) * 0.60 >= newPrice`
 - **Good** otherwise
 
-`newPrice` is inferred from equipment name (see `load_repairs` in `work_order_dashboard.py`).
+`newPrice` is inferred from equipment name (see `load_repairs` in `dashboard/data_loaders.py`).
