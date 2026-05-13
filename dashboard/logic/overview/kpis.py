@@ -54,6 +54,7 @@ def kpi_card(label, value, icon, accent):
                 }
             ),
         ],
+        className="lift-on-hover",
         style={
             **C.CARD_STYLE,
             "padding": "18px 18px 14px",

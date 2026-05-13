@@ -24,6 +24,7 @@ def overview_page_body():
                                 style={"height": 280},
                             ),
                         ],
+                        className="lift-on-hover",
                         style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
                     ),
                     html.Div(
@@ -34,6 +35,7 @@ def overview_page_body():
                                 style={"height": 280},
                             ),
                         ],
+                        className="lift-on-hover",
                         style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
                     ),
                 ],
@@ -49,6 +51,7 @@ def overview_page_body():
                                 style={"height": 260},
                             ),
                         ],
+                        className="lift-on-hover",
                         style={**C.CARD_STYLE, "flex": "1", "minWidth": 240, "padding": "16px 8px 8px"},
                     ),
                     html.Div(
@@ -59,6 +62,7 @@ def overview_page_body():
                                 style={"height": 260},
                             ),
                         ],
+                        className="lift-on-hover",
                         style={**C.CARD_STYLE, "flex": "1", "minWidth": 240, "padding": "16px 8px 8px"},
                     ),
                     html.Div(
@@ -69,6 +73,7 @@ def overview_page_body():
                                 style={"height": 260},
                             ),
                         ],
+                        className="lift-on-hover",
                         style={**C.CARD_STYLE, "flex": "2", "minWidth": 320, "padding": "16px 8px 8px"},
                     ),
                 ],
@@ -84,6 +89,7 @@ def overview_page_body():
                                 style={"height": 320},
                             ),
                         ],
+                        className="lift-on-hover",
                         style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
                     ),
                     html.Div(
@@ -94,6 +100,7 @@ def overview_page_body():
                                 style={"height": 320},
                             ),
                         ],
+                        className="lift-on-hover",
                         style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
                     ),
                 ],
@@ -384,6 +391,7 @@ def replacement_page_body():
                 ),
             ]
         ),
+        className="fm-toolbar",
         style={
             "background": "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
             "border": f"1px solid {C.COLOR_BORDER}",
@@ -416,19 +424,34 @@ def replacement_page_body():
                 item_label="equipment items",
             ),
             html.Div(
-                dash_table.DataTable(
-                    id="replace-table",
-                    style_table={**_tbl, "maxHeight": "62vh"},
-                    style_header=_hdr,
-                    style_cell=_cell,
-                    style_cell_conditional=replace_cell_cond,
-                    style_header_conditional=replace_header_cond,
-                    style_data_conditional=[],
-                    page_size=C.DEFAULT_PAGE_SIZE,
-                    page_action="native",
-                    sort_action="native",
-                    fixed_rows={"headers": True},
-                ),
+                [
+                    dash_table.DataTable(
+                        id="replace-table",
+                        style_table={**_tbl, "maxHeight": "62vh"},
+                        style_header=_hdr,
+                        style_cell=_cell,
+                        style_cell_conditional=replace_cell_cond,
+                        style_header_conditional=replace_header_cond,
+                        style_data_conditional=[],
+                        page_size=C.DEFAULT_PAGE_SIZE,
+                        page_action="native",
+                        sort_action="native",
+                        fixed_rows={"headers": True},
+                    ),
+                    html.Div(
+                        [
+                            html.Div("🔍", className="empty-state-icon"),
+                            html.Div("No matching equipment", className="empty-state-title"),
+                            html.Div(
+                                "No items match the current month and filters. Try clearing the "
+                                "Status / Equipment / ID filters above, or switching the month.",
+                                className="empty-state-hint",
+                            ),
+                        ],
+                        id="replace-empty-state",
+                        className="empty-state",
+                    ),
+                ],
                 style={
                     **C.CARD_STYLE,
                     "padding": 0,
@@ -644,6 +667,7 @@ def order_roster_page_body():
                 ),
             ]
         ),
+        className="fm-toolbar",
         style={
             "background": "linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%)",
             "border": f"1px solid {C.COLOR_BORDER}",
@@ -679,19 +703,34 @@ def order_roster_page_body():
                 item_label="service lines",
             ),
             html.Div(
-                dash_table.DataTable(
-                    id="order-roster-table",
-                    style_table={**_tbl, "maxHeight": "62vh"},
-                    style_header=_hdr,
-                    style_cell=_cell,
-                    style_cell_conditional=order_cell_cond,
-                    style_header_conditional=order_header_cond,
-                    style_data_conditional=[],
-                    page_size=C.DEFAULT_PAGE_SIZE,
-                    page_action="native",
-                    sort_action="native",
-                    fixed_rows={"headers": True},
-                ),
+                [
+                    dash_table.DataTable(
+                        id="order-roster-table",
+                        style_table={**_tbl, "maxHeight": "62vh"},
+                        style_header=_hdr,
+                        style_cell=_cell,
+                        style_cell_conditional=order_cell_cond,
+                        style_header_conditional=order_header_cond,
+                        style_data_conditional=[],
+                        page_size=C.DEFAULT_PAGE_SIZE,
+                        page_action="native",
+                        sort_action="native",
+                        fixed_rows={"headers": True},
+                    ),
+                    html.Div(
+                        [
+                            html.Div("📭", className="empty-state-icon"),
+                            html.Div("No matching service lines", className="empty-state-title"),
+                            html.Div(
+                                "No orders match the current month and filters. Try a different "
+                                "Category, clear the Status / Equipment / ID text, or pick another month.",
+                                className="empty-state-hint",
+                            ),
+                        ],
+                        id="order-empty-state",
+                        className="empty-state",
+                    ),
+                ],
                 style={
                     **C.CARD_STYLE,
                     "padding": 0,
@@ -1356,6 +1395,7 @@ def build_root_layout(month_options, default_month):
                                 ]
                             ),
                         ],
+                        className="fm-header",
                         style={
                             "display": "flex",
                             "justifyContent": "space-between",

@@ -32,6 +32,11 @@ def _format_row_count(filtered: int, total: int, item_singular: str):
     ]
 
 
+def _empty_state_style(visible: bool) -> dict:
+    """Toggle the ``.empty-state`` panel's display without losing its CSS rules."""
+    return {"display": "flex"} if visible else {"display": "none"}
+
+
 def register_callbacks(app):
     @app.callback(
         Output("page-overview", "style"),
@@ -111,6 +116,7 @@ def register_callbacks(app):
         Output("replace-table", "style_data_conditional"),
         Output("replace-table", "page_size"),
         Output("replace-row-count", "children"),
+        Output("replace-empty-state", "style"),
         Input("month-select", "value"),
         Input("settings-store", "data"),
         Input("replace-filter-status", "value"),
@@ -143,6 +149,7 @@ def register_callbacks(app):
             cond,
             C.resolve_page_size(page_size_value),
             _format_row_count(len(records), total, "equipment item"),
+            _empty_state_style(len(records) == 0),
         )
 
     @app.callback(
@@ -152,6 +159,7 @@ def register_callbacks(app):
         Output("order-roster-table", "page_size"),
         Output("order-filter-category", "options"),
         Output("order-row-count", "children"),
+        Output("order-empty-state", "style"),
         Input("month-select", "value"),
         Input("settings-store", "data"),
         Input("order-filter-category", "value"),
@@ -190,6 +198,7 @@ def register_callbacks(app):
             C.resolve_page_size(page_size_value),
             cat_opts,
             _format_row_count(len(odata), total, "service line"),
+            _empty_state_style(len(odata) == 0),
         )
 
     @app.callback(
