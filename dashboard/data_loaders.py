@@ -16,6 +16,28 @@ def _csv_paths_in_dir(directory: str) -> list[str]:
     return [p for p in paths if os.path.isfile(p)]
 
 
+def _unique_header_names(names: list) -> list[str]:
+    """Ensure column names are unique (duplicate headers / blank cells break pd.concat)."""
+    out: list[str] = []
+    counts: dict[str, int] = {}
+    for i, raw in enumerate(names):
+        s = str(raw).replace("\n", " ").strip() if not pd.isna(raw) else ""
+        base = s if s else f"_unnamed_{i}"
+        if base not in counts:
+            counts[base] = 0
+            out.append(base)
+        else:
+            counts[base] += 1
+            out.append(f"{base}__{counts[base]}")
+    return out
+
+
+def _drop_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.columns.is_unique:
+        return df
+    return df.loc[:, ~df.columns.duplicated(keep="first")].copy()
+
+
 def load_requests(path: str) -> pd.DataFrame:
     raw = pd.read_csv(path, header=None)
     raw.columns = raw.iloc[1]
@@ -46,10 +68,37 @@ def load_service(path: str) -> pd.DataFrame:
 
 def load_repairs(path: str) -> pd.DataFrame:
     raw = pd.read_csv(path, skiprows=1, header=None)
-    raw.columns = raw.iloc[0]
+    raw.columns = _unique_header_names([c for c in raw.iloc[0]])
     df = raw.iloc[1:].reset_index(drop=True)
-    df = df[df["#"].apply(lambda x: str(x).strip().isdigit())]
-    df.columns = [c.replace("\n", " ").strip() for c in df.columns]
+
+    def _norm_key(name: str) -> str:
+        return str(name).lower().replace(" ", "").replace("_", "")
+
+    key_to_col = {_norm_key(c): c for c in df.columns if c != ""}
+
+    def _col(*aliases: str):
+        for a in aliases:
+            k = _norm_key(a)
+            if k in key_to_col:
+                return key_to_col[k]
+        return None
+
+    row_col = _col("#", "no.", "no", "row", "line", "item", "#.")
+    if row_col is not None:
+        df = df[df[row_col].apply(lambda x: str(x).strip().isdigit())]
+    else:
+        # Exports without a row-index column: keep rows with a parseable completed/repair date
+        date_guess = _col("Completed Date", "Date", "Repair Date", "Completed")
+        if date_guess:
+            dts = pd.to_datetime(df[date_guess], errors="coerce")
+            df = df[dts.notna()]
+        else:
+            eq_guess = _col("Equipment Name", "Equipment", "Description")
+            if eq_guess:
+                df = df[df[eq_guess].astype(str).str.strip().ne("") & df[eq_guess].notna()]
+
+    df.columns = _unique_header_names([str(c).replace("\n", " ").strip() if not pd.isna(c) else "" for c in df.columns])
+    df = _drop_duplicate_columns(df)
     df = df.rename(
         columns={
             "Completed Date": "date",
@@ -63,6 +112,41 @@ def load_repairs(path: str) -> pd.DataFrame:
             "Est. Total $": "total",
         }
     )
+
+    def _nk(c):
+        return str(c).lower().replace(" ", "").replace("_", "")
+
+    if "date" not in df.columns:
+        for c in list(df.columns):
+            if _nk(c) in ("completeddate", "repairdate", "completiondate", "dateclosed"):
+                df = df.rename(columns={c: "date"})
+                break
+    if "equipment" not in df.columns:
+        for c in list(df.columns):
+            if _nk(c) in ("equipmentname", "equipment", "item", "description"):
+                df = df.rename(columns={c: "equipment"})
+                break
+    if "equipId" not in df.columns:
+        for c in list(df.columns):
+            if _nk(c) in ("equipmentid", "equipid", "assetid"):
+                df = df.rename(columns={c: "equipId"})
+                break
+
+    for need, default in [
+        ("repairs", 0),
+        ("hours", 0),
+        ("parts", 0),
+        ("labor", 0),
+        ("total", 0),
+        ("location", ""),
+        ("equipment", ""),
+        ("equipId", ""),
+    ]:
+        if need not in df.columns:
+            df[need] = default
+    if "date" not in df.columns:
+        df["date"] = pd.NaT
+
     for col in ["repairs", "hours", "parts", "labor", "total"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -83,6 +167,7 @@ def load_repairs(path: str) -> pd.DataFrame:
         return 1035
 
     df["newPrice"] = df["equipment"].apply(get_price)
+    df = _drop_duplicate_columns(df)
     return df
 
 

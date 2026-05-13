@@ -12,6 +12,7 @@ from dashboard.data_loaders import (
 )
 from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
+from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
 from dashboard.logic.replacement_table import build_replacement_table
 
 
@@ -19,9 +20,11 @@ def register_callbacks(app):
     @app.callback(
         Output("page-overview", "style"),
         Output("page-replacement", "style"),
+        Output("page-orders", "style"),
         Output("page-settings", "style"),
         Output("nav-wrap-overview", "style"),
         Output("nav-wrap-replacement", "style"),
+        Output("nav-wrap-orders", "style"),
         Output("nav-wrap-settings", "style"),
         Input("url", "pathname"),
     )
@@ -29,40 +32,43 @@ def register_callbacks(app):
         if pathname in (None, ""):
             pathname = "/"
         on_rep = pathname == "/replacement"
+        on_ord = pathname == "/orders"
         on_set = pathname == "/settings"
         page = {
-            "padding": "24px 28px",
-            "maxWidth": 1240,
-            "margin": "0 auto",
+            "padding": "0",
+            "maxWidth": "100%",
+            "margin": "0",
             "minWidth": 0,
         }
 
-        def nav_left(active: bool):
+        def nav_item(active: bool):
             return {
-                "padding": "10px 14px",
-                "borderRadius": 8,
-                "marginBottom": 4,
+                "padding": "11px 16px",
+                "borderRadius": 10,
+                "marginBottom": 6,
                 "background": "#e8f1fe" if active else "transparent",
                 "color": C.COLOR_TEXT_PRIMARY if active else C.COLOR_TEXT_SECONDARY,
                 "fontWeight": 700 if active else 500,
                 "fontSize": 14,
+                "border": f"1px solid {'#bfdbfe' if active else 'transparent'}",
             }
 
-        ov_style = {**page, "display": "block" if (not on_rep and not on_set) else "none"}
-        rp_style = {**page, "display": "block" if on_rep else "none"}
-        st_style = {**page, "display": "block" if on_set else "none"}
-
+        ov = not on_rep and not on_ord and not on_set
         return (
-            ov_style,
-            rp_style,
-            st_style,
-            nav_left(not on_rep and not on_set),
-            nav_left(on_rep),
-            nav_left(on_set),
+            {**page, "display": "block" if ov else "none"},
+            {**page, "display": "block" if on_rep else "none"},
+            {**page, "display": "block" if on_ord else "none"},
+            {**page, "display": "block" if on_set else "none"},
+            nav_item(ov),
+            nav_item(on_rep),
+            nav_item(on_ord),
+            nav_item(on_set),
         )
 
     @app.callback(
         Output("kpi-row", "children"),
+        Output("overview-category-hours-table", "columns"),
+        Output("overview-category-hours-table", "data"),
         Output("hours-chart", "figure"),
         Output("calendar-chart", "figure"),
         Output("completion-gauge", "figure"),
@@ -86,16 +92,72 @@ def register_callbacks(app):
         Output("replace-table", "style_data_conditional"),
         Input("month-select", "value"),
         Input("settings-store", "data"),
+        Input("replace-filter-status", "value"),
+        Input("replace-filter-equipment", "value"),
+        Input("replace-filter-id", "value"),
     )
-    def update_replacement(month_key, settings_data):
+    def update_replacement_table(
+        month_key,
+        settings_data,
+        rep_status,
+        rep_equip,
+        rep_id,
+    ):
         rep = df_repairs[df_repairs["month_key"] == month_key]
-        return build_replacement_table(rep, settings_data)
+        rep_filters = {
+            "status": rep_status or "All",
+            "equipment_substr": rep_equip or "",
+            "id_substr": rep_id or "",
+        }
+        return build_replacement_table(rep, settings_data, rep_filters)
+
+    @app.callback(
+        Output("order-roster-table", "columns"),
+        Output("order-roster-table", "data"),
+        Output("order-roster-table", "style_data_conditional"),
+        Output("order-filter-category", "options"),
+        Input("month-select", "value"),
+        Input("settings-store", "data"),
+        Input("order-filter-category", "value"),
+        Input("order-filter-status", "value"),
+        Input("order-filter-equipment", "value"),
+        Input("order-filter-id", "value"),
+    )
+    def update_order_roster_table(
+        month_key,
+        settings_data,
+        order_cat,
+        order_status,
+        order_equip,
+        order_id,
+    ):
+        _ = settings_data
+        svc = df_service[df_service["month_key"] == month_key]
+        order_filters = {
+            "category": order_cat or "",
+            "status_substr": order_status or "",
+            "equipment_substr": order_equip or "",
+            "id_substr": order_id or "",
+        }
+        ocols, odata, ostyle = build_repair_orders_table(svc, order_filters)
+        cat_opts = repair_order_filter_options(svc)
+        return ocols, odata, ostyle, cat_opts
+
+    @app.callback(
+        Output("order-filter-category", "value"),
+        Input("month-select", "value"),
+        prevent_initial_call=True,
+    )
+    def reset_order_category_on_month(_month_key):
+        return ""
 
     @app.callback(
         Output("nav-icon-overview", "children"),
         Output("nav-icon-replacement", "children"),
+        Output("nav-icon-orders", "children"),
         Output("nav-icon-settings", "children"),
         Output("replace-page-title-icon", "children"),
+        Output("order-page-title-icon", "children"),
         Output("replace-legend-ico-replace", "children"),
         Output("replace-legend-ico-monitor", "children"),
         Output("replace-legend-ico-good", "children"),
@@ -103,11 +165,14 @@ def register_callbacks(app):
     )
     def sync_chrome_icons(data):
         m = merge_app_settings(data)
+        io = m["iconNavOrders"]
         return (
             m["iconNavOverview"],
             m["iconNavReplacement"],
+            io,
             m["iconNavSettings"],
             m["iconReplaceTitle"],
+            io,
             m["iconReplaceStatusReplace"],
             m["iconReplaceStatusMonitor"],
             m["iconReplaceStatusGood"],
@@ -130,6 +195,7 @@ def register_callbacks(app):
         State("settings-iconKpiLabor", "value"),
         State("settings-iconNavOverview", "value"),
         State("settings-iconNavReplacement", "value"),
+        State("settings-iconNavOrders", "value"),
         State("settings-iconNavSettings", "value"),
         State("settings-iconReplaceTitle", "value"),
         State("settings-iconReplaceStatusReplace", "value"),
@@ -155,6 +221,7 @@ def register_callbacks(app):
         ik_labor,
         in_ov,
         in_rep,
+        in_ord,
         in_set,
         ir_title,
         ir_rep,
@@ -192,6 +259,7 @@ def register_callbacks(app):
             "iconKpiLabor": ik_labor,
             "iconNavOverview": in_ov,
             "iconNavReplacement": in_rep,
+            "iconNavOrders": in_ord,
             "iconNavSettings": in_set,
             "iconReplaceTitle": ir_title,
             "iconReplaceStatusReplace": ir_rep,
@@ -215,6 +283,7 @@ def register_callbacks(app):
         Output("settings-iconKpiLabor", "value"),
         Output("settings-iconNavOverview", "value"),
         Output("settings-iconNavReplacement", "value"),
+        Output("settings-iconNavOrders", "value"),
         Output("settings-iconNavSettings", "value"),
         Output("settings-iconReplaceTitle", "value"),
         Output("settings-iconReplaceStatusReplace", "value"),
@@ -245,6 +314,7 @@ def register_callbacks(app):
             m["iconKpiLabor"],
             m["iconNavOverview"],
             m["iconNavReplacement"],
+            m["iconNavOrders"],
             m["iconNavSettings"],
             m["iconReplaceTitle"],
             m["iconReplaceStatusReplace"],

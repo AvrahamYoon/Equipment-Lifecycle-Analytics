@@ -11,6 +11,7 @@ _ICON_KEYS = (
     "iconKpiLabor",
     "iconNavOverview",
     "iconNavReplacement",
+    "iconNavOrders",
     "iconNavSettings",
     "iconReplaceTitle",
     "iconReplaceStatusReplace",

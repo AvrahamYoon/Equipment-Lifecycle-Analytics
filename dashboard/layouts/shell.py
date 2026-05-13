@@ -1,6 +1,6 @@
 """Root layout: left nav + header + page panels (overview / replacement / settings)."""
 
-from dash import dcc, html
+from dash import dcc, html, dash_table
 
 from dashboard import constants as C
 
@@ -8,6 +8,31 @@ _DEFAULTS = C.default_app_settings()
 
 
 def overview_page_body():
+    _tbl = {
+        "overflowX": "auto",
+        "borderRadius": 10,
+        "overflow": "hidden",
+    }
+    _hdr = {
+        "backgroundColor": "#f8fafc",
+        "color": C.COLOR_TEXT_SECONDARY,
+        "fontWeight": "700",
+        "fontSize": 11,
+        "textTransform": "uppercase",
+        "letterSpacing": "0.06em",
+        "borderBottom": f"2px solid {C.COLOR_BORDER}",
+        "padding": "10px 14px",
+        "border": "none",
+    }
+    _cell = {
+        "backgroundColor": C.BG_CARD,
+        "color": C.COLOR_TEXT_PRIMARY,
+        "fontSize": 13,
+        "padding": "10px 14px",
+        "border": "none",
+        "borderBottom": f"1px solid {C.COLOR_BORDER}",
+        "fontFamily": "'DM Sans','Segoe UI',sans-serif",
+    }
     return html.Div(
         [
             html.Div(
@@ -100,6 +125,50 @@ def overview_page_body():
                 style={"display": "flex", "gap": 16, "marginBottom": 20},
             ),
             html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Span(
+                                "📊",
+                                style={"fontSize": 16, "marginRight": 8, "lineHeight": 1},
+                            ),
+                            html.Span(
+                                "Monthly repair hours by equipment class",
+                                style={
+                                    "fontSize": 14,
+                                    "fontWeight": 700,
+                                    "color": C.COLOR_TEXT_PRIMARY,
+                                },
+                            ),
+                        ],
+                        style={"display": "flex", "alignItems": "center", "marginBottom": 8},
+                    ),
+                    html.Div(
+                        "Totals repair person-hours for the selected month, using the same equipment classes "
+                        "as the Repair Hours chart above.",
+                        style={
+                            "fontSize": 12,
+                            "color": C.COLOR_TEXT_SECONDARY,
+                            "marginBottom": 12,
+                            "lineHeight": 1.45,
+                        },
+                    ),
+                    dash_table.DataTable(
+                        id="overview-category-hours-table",
+                        columns=[],
+                        data=[],
+                        page_size=12,
+                        style_table=_tbl,
+                        style_header=_hdr,
+                        style_cell=_cell,
+                        style_data_conditional=[
+                            {"if": {"row_index": "odd"}, "backgroundColor": "#fafbfc"},
+                        ],
+                    ),
+                ],
+                style={**C.CARD_STYLE, "padding": "16px 18px 12px", "marginBottom": 20},
+            ),
+            html.Div(
                 id="footer-text",
                 style={
                     "textAlign": "center",
@@ -113,7 +182,7 @@ def overview_page_body():
         style={
             "display": "block",
             "padding": "24px 28px",
-            "maxWidth": 1240,
+            "maxWidth": 1440,
             "margin": "0 auto",
             "minWidth": 0,
         },
@@ -121,117 +190,496 @@ def overview_page_body():
 
 
 def replacement_page_body():
-    from dash import dash_table
-
+    """Full-page replacement indicator (equipment-level roll-up)."""
     d = _DEFAULTS
-    return html.Div(
+    flabel = {
+        "fontSize": 11,
+        "fontWeight": 600,
+        "color": C.COLOR_TEXT_MUTED,
+        "letterSpacing": "0.06em",
+        "textTransform": "uppercase",
+        "marginBottom": 6,
+        "display": "block",
+    }
+    finp = {
+        "width": "100%",
+        "maxWidth": 280,
+        "padding": "10px 12px",
+        "borderRadius": 10,
+        "border": f"1px solid {C.COLOR_BORDER}",
+        "fontSize": 13,
+        "fontFamily": "inherit",
+        "boxSizing": "border-box",
+        "background": "#fff",
+    }
+    _hdr = {
+        "backgroundColor": "#f1f5f9",
+        "color": C.COLOR_TEXT_SECONDARY,
+        "fontWeight": "700",
+        "fontSize": 11,
+        "textTransform": "uppercase",
+        "letterSpacing": "0.06em",
+        "borderBottom": f"2px solid {C.COLOR_BORDER}",
+        "padding": "12px 16px",
+        "border": "none",
+    }
+    _cell = {
+        "backgroundColor": C.BG_CARD,
+        "color": C.COLOR_TEXT_PRIMARY,
+        "fontSize": 13,
+        "padding": "12px 16px",
+        "border": "none",
+        "borderBottom": f"1px solid {C.COLOR_BORDER}",
+        "fontFamily": "'DM Sans','Segoe UI',sans-serif",
+    }
+    _tbl = {"overflowX": "auto", "borderRadius": 12, "overflow": "hidden", "border": f"1px solid {C.COLOR_BORDER}"}
+
+    def filter_bar(children):
+        return html.Div(
+            children,
+            style={
+                "display": "flex",
+                "flexWrap": "wrap",
+                "gap": 16,
+                "alignItems": "flex-end",
+            },
+        )
+
+    hero = html.Div(
         [
             html.Div(
                 [
-                    html.Div(
-                        [
-                            html.Span(
-                                id="replace-page-title-icon",
-                                children=d["iconReplaceTitle"],
-                                style={"fontSize": 16, "marginRight": 8, "lineHeight": 1},
-                            ),
-                            html.Span(
-                                "Equipment Replacement Indicator",
-                                style={
-                                    "fontSize": 14,
-                                    "fontWeight": 700,
-                                    "color": C.COLOR_TEXT_PRIMARY,
-                                },
-                            ),
-                        ],
-                        style={"display": "flex", "alignItems": "center", "marginBottom": 6},
-                    ),
-                    html.Div(
-                        [
-                            html.Span(
-                                [
-                                    html.Span(
-                                        id="replace-legend-ico-replace",
-                                        children=d["iconReplaceStatusReplace"],
-                                        style={"fontWeight": 600},
-                                    ),
-                                    html.Span(" Replace", style={"color": "#dc2626", "fontWeight": 600}),
-                                ],
-                                style={"marginRight": 16, "display": "inline-flex", "alignItems": "baseline"},
-                            ),
-                            html.Span(
-                                "(Labor+Parts)×0.80 ≥ New Price",
-                                style={"color": C.COLOR_TEXT_MUTED, "marginRight": 24},
-                            ),
-                            html.Span(
-                                [
-                                    html.Span(
-                                        id="replace-legend-ico-monitor",
-                                        children=d["iconReplaceStatusMonitor"],
-                                        style={"fontWeight": 600},
-                                    ),
-                                    html.Span(" Monitor", style={"color": "#d97706", "fontWeight": 600}),
-                                ],
-                                style={"marginRight": 16, "display": "inline-flex", "alignItems": "baseline"},
-                            ),
-                            html.Span(
-                                "(Labor+Parts)×0.60 ≥ New Price",
-                                style={"color": C.COLOR_TEXT_MUTED, "marginRight": 24},
-                            ),
-                            html.Span(
-                                [
-                                    html.Span(
-                                        id="replace-legend-ico-good",
-                                        children=d["iconReplaceStatusGood"],
-                                        style={"fontWeight": 600},
-                                    ),
-                                    html.Span(" Good", style={"color": "#059669", "fontWeight": 600}),
-                                ],
-                                style={"marginRight": 16, "display": "inline-flex", "alignItems": "baseline"},
-                            ),
-                            html.Span("Below threshold", style={"color": C.COLOR_TEXT_MUTED}),
-                        ],
+                    html.Span(
+                        id="replace-page-title-icon",
+                        children=d["iconReplaceTitle"],
                         style={
-                            "fontSize": 12,
-                            "marginBottom": 16,
-                            "flexWrap": "wrap",
-                            "display": "flex",
-                            "gap": 4,
+                            "fontSize": 22,
+                            "marginRight": 12,
+                            "lineHeight": 1,
+                            "filter": "drop-shadow(0 1px 1px rgba(0,0,0,0.06))",
                         },
                     ),
-                ]
+                    html.Div(
+                        [
+                            html.H2(
+                                "Equipment Replacement Indicator",
+                                style={
+                                    "margin": 0,
+                                    "fontSize": 22,
+                                    "fontWeight": 800,
+                                    "color": C.COLOR_TEXT_PRIMARY,
+                                    "letterSpacing": "-0.02em",
+                                },
+                            ),
+                            html.P(
+                                "Roll-up of parts and labor vs. estimated new equipment price for the selected month.",
+                                style={
+                                    "margin": "6px 0 0",
+                                    "fontSize": 13,
+                                    "color": C.COLOR_TEXT_SECONDARY,
+                                    "lineHeight": 1.45,
+                                    "maxWidth": 720,
+                                },
+                            ),
+                        ]
+                    ),
+                ],
+                style={"display": "flex", "alignItems": "flex-start"},
             ),
+            html.Div(
+                [
+                    html.Span(
+                        [
+                            html.Span(
+                                id="replace-legend-ico-replace",
+                                children=d["iconReplaceStatusReplace"],
+                                style={"fontWeight": 700},
+                            ),
+                            html.Span(" Replace", style={"color": "#b91c1c", "fontWeight": 700}),
+                        ],
+                        style={
+                            "marginRight": 14,
+                            "padding": "6px 12px",
+                            "borderRadius": 999,
+                            "background": "#fef2f2",
+                            "border": "1px solid #fecaca",
+                            "fontSize": 12,
+                        },
+                    ),
+                    html.Span(
+                        "(Labor+Parts)×0.80 ≥ New Price",
+                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginRight": 18},
+                    ),
+                    html.Span(
+                        [
+                            html.Span(
+                                id="replace-legend-ico-monitor",
+                                children=d["iconReplaceStatusMonitor"],
+                                style={"fontWeight": 700},
+                            ),
+                            html.Span(" Monitor", style={"color": "#b45309", "fontWeight": 700}),
+                        ],
+                        style={
+                            "marginRight": 14,
+                            "padding": "6px 12px",
+                            "borderRadius": 999,
+                            "background": "#fffbeb",
+                            "border": "1px solid #fde68a",
+                            "fontSize": 12,
+                        },
+                    ),
+                    html.Span(
+                        "(Labor+Parts)×0.60 ≥ New Price",
+                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginRight": 18},
+                    ),
+                    html.Span(
+                        [
+                            html.Span(
+                                id="replace-legend-ico-good",
+                                children=d["iconReplaceStatusGood"],
+                                style={"fontWeight": 700},
+                            ),
+                            html.Span(" Good", style={"color": "#047857", "fontWeight": 700}),
+                        ],
+                        style={
+                            "marginRight": 14,
+                            "padding": "6px 12px",
+                            "borderRadius": 999,
+                            "background": "#ecfdf5",
+                            "border": "1px solid #a7f3d0",
+                            "fontSize": 12,
+                        },
+                    ),
+                    html.Span(
+                        "Below both thresholds",
+                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12},
+                    ),
+                ],
+                style={
+                    "display": "flex",
+                    "flexWrap": "wrap",
+                    "gap": 8,
+                    "alignItems": "center",
+                    "marginTop": 16,
+                },
+            ),
+        ],
+        style={
+            **C.CARD_STYLE,
+            "padding": "24px 26px 22px",
+            "marginBottom": 20,
+            "borderLeft": f"4px solid {C.C_BLUE}",
+            "boxShadow": "0 4px 24px rgba(15, 23, 42, 0.06)",
+        },
+    )
+
+    toolbar = html.Div(
+        filter_bar(
+            [
+                html.Div(
+                    [
+                        html.Label("Status", style=flabel),
+                        dcc.Dropdown(
+                            id="replace-filter-status",
+                            options=[
+                                {"label": "All statuses", "value": "All"},
+                                {"label": "Replace", "value": "Replace"},
+                                {"label": "Monitor", "value": "Monitor"},
+                                {"label": "Good", "value": "Good"},
+                            ],
+                            value="All",
+                            clearable=False,
+                            style={"minWidth": 200, "fontFamily": "inherit", "fontSize": 13},
+                        ),
+                    ],
+                    style={"minWidth": 200},
+                ),
+                html.Div(
+                    [
+                        html.Label("Equipment contains", style=flabel),
+                        dcc.Input(
+                            id="replace-filter-equipment",
+                            type="text",
+                            placeholder="Substring in equipment name",
+                            debounce=True,
+                            style=finp,
+                        ),
+                    ],
+                    style={"flex": "1", "minWidth": 200},
+                ),
+                html.Div(
+                    [
+                        html.Label("Equipment ID contains", style=flabel),
+                        dcc.Input(
+                            id="replace-filter-id",
+                            type="text",
+                            placeholder="Substring in ID",
+                            debounce=True,
+                            style=finp,
+                        ),
+                    ],
+                    style={"flex": "1", "minWidth": 180},
+                ),
+            ]
+        ),
+        style={
+            "background": "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
+            "border": f"1px solid {C.COLOR_BORDER}",
+            "borderRadius": 12,
+            "padding": "16px 18px",
+            "marginBottom": 18,
+        },
+    )
+
+    return html.Div(
+        [
+            hero,
+            toolbar,
             dash_table.DataTable(
                 id="replace-table",
-                style_table={"overflowX": "auto", "borderRadius": 10, "overflow": "hidden"},
-                style_header={
-                    "backgroundColor": "#f8fafc",
-                    "color": C.COLOR_TEXT_SECONDARY,
-                    "fontWeight": "700",
-                    "fontSize": 11,
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.06em",
-                    "borderBottom": f"2px solid {C.COLOR_BORDER}",
-                    "padding": "10px 14px",
-                    "border": "none",
-                },
-                style_cell={
-                    "backgroundColor": C.BG_CARD,
-                    "color": C.COLOR_TEXT_PRIMARY,
-                    "fontSize": 13,
-                    "padding": "10px 14px",
-                    "border": "none",
-                    "borderBottom": f"1px solid {C.COLOR_BORDER}",
-                    "fontFamily": "'DM Sans','Segoe UI',sans-serif",
-                },
+                style_table=_tbl,
+                style_header=_hdr,
+                style_cell=_cell,
                 style_data_conditional=[],
+                page_size=20,
             ),
         ],
         id="page-replacement",
         style={
             "display": "none",
-            "padding": "24px 28px",
-            "maxWidth": 1240,
+            "padding": "28px 32px 40px",
+            "maxWidth": 1280,
+            "margin": "0 auto",
+            "minWidth": 0,
+        },
+    )
+
+
+def order_roster_page_body():
+    """Full-page service order lines (schedule → completion, business days)."""
+    d = _DEFAULTS
+    flabel = {
+        "fontSize": 11,
+        "fontWeight": 600,
+        "color": C.COLOR_TEXT_MUTED,
+        "letterSpacing": "0.06em",
+        "textTransform": "uppercase",
+        "marginBottom": 6,
+        "display": "block",
+    }
+    finp = {
+        "width": "100%",
+        "maxWidth": 280,
+        "padding": "10px 12px",
+        "borderRadius": 10,
+        "border": f"1px solid {C.COLOR_BORDER}",
+        "fontSize": 13,
+        "fontFamily": "inherit",
+        "boxSizing": "border-box",
+        "background": "#fff",
+    }
+    _hdr = {
+        "backgroundColor": "#f1f5f9",
+        "color": C.COLOR_TEXT_SECONDARY,
+        "fontWeight": "700",
+        "fontSize": 11,
+        "textTransform": "uppercase",
+        "letterSpacing": "0.06em",
+        "borderBottom": f"2px solid {C.COLOR_BORDER}",
+        "padding": "12px 16px",
+        "border": "none",
+    }
+    _cell = {
+        "backgroundColor": C.BG_CARD,
+        "color": C.COLOR_TEXT_PRIMARY,
+        "fontSize": 13,
+        "padding": "12px 16px",
+        "border": "none",
+        "borderBottom": f"1px solid {C.COLOR_BORDER}",
+        "fontFamily": "'DM Sans','Segoe UI',sans-serif",
+    }
+    _tbl = {"overflowX": "auto", "borderRadius": 12, "overflow": "hidden", "border": f"1px solid {C.COLOR_BORDER}"}
+
+    def filter_bar(children):
+        return html.Div(
+            children,
+            style={
+                "display": "flex",
+                "flexWrap": "wrap",
+                "gap": 16,
+                "alignItems": "flex-end",
+            },
+        )
+
+    hero = html.Div(
+        [
+            html.Div(
+                [
+                    html.Span(
+                        id="order-page-title-icon",
+                        children=d["iconNavOrders"],
+                        style={
+                            "fontSize": 22,
+                            "marginRight": 12,
+                            "lineHeight": 1,
+                            "filter": "drop-shadow(0 1px 1px rgba(0,0,0,0.06))",
+                        },
+                    ),
+                    html.Div(
+                        [
+                            html.H2(
+                                "Order roster",
+                                style={
+                                    "margin": 0,
+                                    "fontSize": 22,
+                                    "fontWeight": 800,
+                                    "color": C.COLOR_TEXT_PRIMARY,
+                                    "letterSpacing": "-0.02em",
+                                },
+                            ),
+                            html.P(
+                                "Service lines for the selected month: scheduled date, completed date, and "
+                                "business days between them (weekends and US federal holidays excluded).",
+                                style={
+                                    "margin": "6px 0 0",
+                                    "fontSize": 13,
+                                    "color": C.COLOR_TEXT_SECONDARY,
+                                    "lineHeight": 1.45,
+                                    "maxWidth": 820,
+                                },
+                            ),
+                        ]
+                    ),
+                ],
+                style={"display": "flex", "alignItems": "flex-start"},
+            ),
+            html.Div(
+                [
+                    html.Span(
+                        "Scheduled date",
+                        style={
+                            "color": C.COLOR_TEXT_PRIMARY,
+                            "fontWeight": 700,
+                            "fontSize": 12,
+                            "padding": "6px 12px",
+                            "borderRadius": 8,
+                            "background": "#e0f2fe",
+                            "border": "1px solid #bae6fd",
+                        },
+                    ),
+                    html.Span("→", style={"color": C.COLOR_TEXT_MUTED, "margin": "0 8px", "fontWeight": 600}),
+                    html.Span(
+                        "Completed date",
+                        style={
+                            "color": C.COLOR_TEXT_PRIMARY,
+                            "fontWeight": 700,
+                            "fontSize": 12,
+                            "padding": "6px 12px",
+                            "borderRadius": 8,
+                            "background": "#ecfdf5",
+                            "border": "1px solid #a7f3d0",
+                        },
+                    ),
+                    html.Span(
+                        "·  Business-day span matches the Overview turnaround calendar",
+                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginLeft": 10},
+                    ),
+                ],
+                style={"display": "flex", "flexWrap": "wrap", "alignItems": "center", "marginTop": 16},
+            ),
+        ],
+        style={
+            **C.CARD_STYLE,
+            "padding": "24px 26px 22px",
+            "marginBottom": 20,
+            "borderLeft": f"4px solid {C.C_PURPLE}",
+            "boxShadow": "0 4px 24px rgba(15, 23, 42, 0.06)",
+        },
+    )
+
+    toolbar = html.Div(
+        filter_bar(
+            [
+                html.Div(
+                    [
+                        html.Label("Equipment class", style=flabel),
+                        dcc.Dropdown(
+                            id="order-filter-category",
+                            options=[{"label": "All categories", "value": ""}],
+                            value="",
+                            clearable=False,
+                            style={"minWidth": 220, "fontFamily": "inherit", "fontSize": 13},
+                        ),
+                    ],
+                    style={"minWidth": 230},
+                ),
+                html.Div(
+                    [
+                        html.Label("Status contains", style=flabel),
+                        dcc.Input(
+                            id="order-filter-status",
+                            type="text",
+                            placeholder="e.g. completed",
+                            debounce=True,
+                            style=finp,
+                        ),
+                    ],
+                    style={"flex": "1", "minWidth": 160},
+                ),
+                html.Div(
+                    [
+                        html.Label("Equipment contains", style=flabel),
+                        dcc.Input(
+                            id="order-filter-equipment",
+                            type="text",
+                            debounce=True,
+                            style=finp,
+                        ),
+                    ],
+                    style={"flex": "1", "minWidth": 160},
+                ),
+                html.Div(
+                    [
+                        html.Label("Equipment ID contains", style=flabel),
+                        dcc.Input(
+                            id="order-filter-id",
+                            type="text",
+                            debounce=True,
+                            style=finp,
+                        ),
+                    ],
+                    style={"flex": "1", "minWidth": 160},
+                ),
+            ]
+        ),
+        style={
+            "background": "linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%)",
+            "border": f"1px solid {C.COLOR_BORDER}",
+            "borderRadius": 12,
+            "padding": "16px 18px",
+            "marginBottom": 18,
+        },
+    )
+
+    return html.Div(
+        [
+            hero,
+            toolbar,
+            dash_table.DataTable(
+                id="order-roster-table",
+                style_table=_tbl,
+                style_header=_hdr,
+                style_cell=_cell,
+                style_data_conditional=[],
+                page_size=20,
+                sort_action="native",
+            ),
+        ],
+        id="page-orders",
+        style={
+            "display": "none",
+            "padding": "28px 32px 40px",
+            "maxWidth": 1280,
             "margin": "0 auto",
             "minWidth": 0,
         },
@@ -380,7 +828,7 @@ def settings_page_body():
             ),
             section(
                 "Icons",
-                "Short text or emoji for KPI cards, left navigation, and the Replacement page. "
+                "Short text or emoji for KPI cards, left navigation, and replacement / order pages. "
                 "Leave blank to restore the built-in default for that slot.",
                 [
                     html.Div(
@@ -483,6 +931,17 @@ def settings_page_body():
                                                 id="settings-iconNavReplacement",
                                                 type="text",
                                                 value=_DEFAULTS["iconNavReplacement"],
+                                                style={**inp, "width": 88},
+                                            ),
+                                        ]
+                                    ),
+                                    html.Div(
+                                        [
+                                            html.Label("Order roster link", style=label),
+                                            dcc.Input(
+                                                id="settings-iconNavOrders",
+                                                type="text",
+                                                value=_DEFAULTS["iconNavOrders"],
                                                 style={**inp, "width": 88},
                                             ),
                                         ]
@@ -628,7 +1087,18 @@ def build_root_layout(month_options, default_month):
             dcc.Store(id="settings-store", storage_type="local", data=C.default_app_settings()),
             html.Div(
                 [
-                    html.Div("Navigation", style={"fontSize": 10, "color": C.COLOR_TEXT_MUTED, "marginBottom": 8}),
+                    html.Div(
+                        "Workspace",
+                        style={
+                            "fontSize": 10,
+                            "fontWeight": 700,
+                            "letterSpacing": "0.14em",
+                            "color": C.COLOR_TEXT_MUTED,
+                            "textTransform": "uppercase",
+                            "marginBottom": 12,
+                            "paddingLeft": 4,
+                        },
+                    ),
                     html.Div(
                         dcc.Link(
                             [
@@ -636,14 +1106,14 @@ def build_root_layout(month_options, default_month):
                                     id="nav-icon-overview",
                                     children=_DEFAULTS["iconNavOverview"],
                                     style={
-                                        "marginRight": 8,
-                                        "fontSize": 16,
+                                        "marginRight": 10,
+                                        "fontSize": 17,
                                         "lineHeight": 1,
                                         "display": "inline-block",
-                                        "minWidth": "1.1em",
+                                        "minWidth": "1.15em",
                                     },
                                 ),
-                                "Overview",
+                                html.Span("Overview", style={"letterSpacing": "-0.01em"}),
                             ],
                             href="/",
                             style={
@@ -655,13 +1125,14 @@ def build_root_layout(month_options, default_month):
                         ),
                         id="nav-wrap-overview",
                         style={
-                            "padding": "10px 14px",
-                            "borderRadius": 8,
-                            "marginBottom": 4,
+                            "padding": "11px 16px",
+                            "borderRadius": 10,
+                            "marginBottom": 6,
                             "background": "#e8f1fe",
                             "color": C.COLOR_TEXT_PRIMARY,
                             "fontWeight": 700,
                             "fontSize": 14,
+                            "border": "1px solid transparent",
                         },
                     ),
                     html.Div(
@@ -671,14 +1142,14 @@ def build_root_layout(month_options, default_month):
                                     id="nav-icon-replacement",
                                     children=_DEFAULTS["iconNavReplacement"],
                                     style={
-                                        "marginRight": 8,
-                                        "fontSize": 16,
+                                        "marginRight": 10,
+                                        "fontSize": 17,
                                         "lineHeight": 1,
                                         "display": "inline-block",
-                                        "minWidth": "1.1em",
+                                        "minWidth": "1.15em",
                                     },
                                 ),
-                                "Replacement table",
+                                html.Span("Replacement", style={"letterSpacing": "-0.01em"}),
                             ],
                             href="/replacement",
                             style={
@@ -690,13 +1161,69 @@ def build_root_layout(month_options, default_month):
                         ),
                         id="nav-wrap-replacement",
                         style={
-                            "padding": "10px 14px",
-                            "borderRadius": 8,
-                            "marginBottom": 4,
+                            "padding": "11px 16px",
+                            "borderRadius": 10,
+                            "marginBottom": 6,
                             "background": "transparent",
                             "color": C.COLOR_TEXT_SECONDARY,
                             "fontWeight": 500,
                             "fontSize": 14,
+                            "border": "1px solid transparent",
+                        },
+                    ),
+                    html.Div(
+                        dcc.Link(
+                            [
+                                html.Span(
+                                    id="nav-icon-orders",
+                                    children=_DEFAULTS["iconNavOrders"],
+                                    style={
+                                        "marginRight": 10,
+                                        "fontSize": 17,
+                                        "lineHeight": 1,
+                                        "display": "inline-block",
+                                        "minWidth": "1.15em",
+                                    },
+                                ),
+                                html.Span("Order roster", style={"letterSpacing": "-0.01em"}),
+                            ],
+                            href="/orders",
+                            style={
+                                "color": "inherit",
+                                "textDecoration": "none",
+                                "display": "flex",
+                                "alignItems": "center",
+                            },
+                        ),
+                        id="nav-wrap-orders",
+                        style={
+                            "padding": "11px 16px",
+                            "borderRadius": 10,
+                            "marginBottom": 6,
+                            "background": "transparent",
+                            "color": C.COLOR_TEXT_SECONDARY,
+                            "fontWeight": 500,
+                            "fontSize": 14,
+                            "border": "1px solid transparent",
+                        },
+                    ),
+                    html.Div(
+                        style={
+                            "height": 1,
+                            "background": C.COLOR_BORDER,
+                            "margin": "14px 4px 12px",
+                        }
+                    ),
+                    html.Div(
+                        "Preferences",
+                        style={
+                            "fontSize": 10,
+                            "fontWeight": 700,
+                            "letterSpacing": "0.14em",
+                            "color": C.COLOR_TEXT_MUTED,
+                            "textTransform": "uppercase",
+                            "marginBottom": 10,
+                            "paddingLeft": 4,
                         },
                     ),
                     html.Div(
@@ -706,14 +1233,14 @@ def build_root_layout(month_options, default_month):
                                     id="nav-icon-settings",
                                     children=_DEFAULTS["iconNavSettings"],
                                     style={
-                                        "marginRight": 8,
-                                        "fontSize": 16,
+                                        "marginRight": 10,
+                                        "fontSize": 17,
                                         "lineHeight": 1,
                                         "display": "inline-block",
-                                        "minWidth": "1.1em",
+                                        "minWidth": "1.15em",
                                     },
                                 ),
-                                "Settings",
+                                html.Span("Settings", style={"letterSpacing": "-0.01em"}),
                             ],
                             href="/settings",
                             style={
@@ -725,26 +1252,28 @@ def build_root_layout(month_options, default_month):
                         ),
                         id="nav-wrap-settings",
                         style={
-                            "padding": "10px 14px",
-                            "borderRadius": 8,
-                            "marginBottom": 4,
+                            "padding": "11px 16px",
+                            "borderRadius": 10,
+                            "marginBottom": 6,
                             "background": "transparent",
                             "color": C.COLOR_TEXT_SECONDARY,
                             "fontWeight": 500,
                             "fontSize": 14,
+                            "border": "1px solid transparent",
                         },
                     ),
                 ],
                 style={
-                    "width": 220,
+                    "width": 248,
                     "flexShrink": 0,
                     "height": "100vh",
                     "overflowY": "auto",
                     "overflowX": "hidden",
-                    "background": C.BG_HEADER,
+                    "background": "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
                     "borderRight": f"1px solid {C.COLOR_BORDER}",
-                    "padding": "20px 16px",
+                    "padding": "22px 14px 24px",
                     "boxSizing": "border-box",
+                    "boxShadow": "inset -1px 0 0 rgba(148, 163, 184, 0.12)",
                 },
             ),
             html.Div(
@@ -817,7 +1346,7 @@ def build_root_layout(month_options, default_month):
                         },
                     ),
                     html.Div(
-                        [overview_page_body(), replacement_page_body(), settings_page_body()],
+                        [overview_page_body(), replacement_page_body(), order_roster_page_body(), settings_page_body()],
                         id="main-scroll",
                         style={
                             "flex": "1",
