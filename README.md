@@ -10,7 +10,6 @@ Python utilities for work-order analytics (Dash dashboard) and equipment list cl
 | `dashboard/` | App package: `app.py`, `layouts/shell.py`, `callbacks/wiring.py`, `data_loaders.py`, `constants.py`, `taxonomy.py`, `calendar_util.py` |
 | `dashboard/logic/overview/` | Overview charts and KPI assembly (`figures.py`, `kpis.py`, `service_prep.py`, `settings_merge.py`) |
 | `dashboard/logic/replacement_table.py` | Replacement indicator `DataTable` |
-| `dashboard/logic/category_hours_table.py` | Overview summary: repair hours by equipment class |
 | `dashboard/logic/repair_orders_table.py` | **Order roster** `DataTable` (service lines + business-day span) |
 | `dashboard/logic/overview_charts.py` | Thin re-export of `build_overview` (compat) |
 | `list_clean.py` | Batch-clean Compuclean equipment exports: `data/equipment/raw/` → `data/equipment/cleaned/` |

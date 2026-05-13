@@ -1,6 +1,6 @@
 """Register Dash callbacks."""
 
-from dash import Input, Output, State, callback_context
+from dash import Input, Output, State, callback_context, html
 from dash.exceptions import PreventUpdate
 
 from dashboard import constants as C
@@ -14,6 +14,22 @@ from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
 from dashboard.logic.replacement_table import build_replacement_table
+
+
+def _format_row_count(filtered: int, total: int, item_singular: str):
+    """Build the 'Showing X of Y …' children for the row-count pill.
+
+    Returns a list of Dash components so the numeric parts can be bold via
+    ``<strong>`` without forcing the caller to render Markdown.
+    """
+    plural = item_singular if filtered == 1 else f"{item_singular}s"
+    if filtered == total:
+        return [html.Strong(f"{filtered:,}"), html.Span(f" {plural}")]
+    return [
+        html.Span("Showing "),
+        html.Strong(f"{filtered:,}"),
+        html.Span(f" of {total:,} {plural}"),
+    ]
 
 
 def register_callbacks(app):
@@ -67,8 +83,6 @@ def register_callbacks(app):
 
     @app.callback(
         Output("kpi-row", "children"),
-        Output("overview-category-hours-table", "columns"),
-        Output("overview-category-hours-table", "data"),
         Output("hours-chart", "figure"),
         Output("calendar-chart", "figure"),
         Output("completion-gauge", "figure"),
@@ -81,20 +95,28 @@ def register_callbacks(app):
         Input("settings-store", "data"),
     )
     def update_overview(month_key, settings_data):
-        req = df_req[df_req["month_key"] == month_key]
-        svc = df_service[df_service["month_key"] == month_key]
-        rep = df_repairs[df_repairs["month_key"] == month_key]
+        if C.is_all_months(month_key):
+            req = df_req[df_req["month_key"].astype(str) != "NaT"]
+            svc = df_service[df_service["month_key"].astype(str) != "NaT"]
+            rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
+        else:
+            req = df_req[df_req["month_key"] == month_key]
+            svc = df_service[df_service["month_key"] == month_key]
+            rep = df_repairs[df_repairs["month_key"] == month_key]
         return build_overview(month_key, req, svc, rep, df_equip, settings_data)
 
     @app.callback(
         Output("replace-table", "columns"),
         Output("replace-table", "data"),
         Output("replace-table", "style_data_conditional"),
+        Output("replace-table", "page_size"),
+        Output("replace-row-count", "children"),
         Input("month-select", "value"),
         Input("settings-store", "data"),
         Input("replace-filter-status", "value"),
         Input("replace-filter-equipment", "value"),
         Input("replace-filter-id", "value"),
+        Input("replace-page-size", "value"),
     )
     def update_replacement_table(
         month_key,
@@ -102,26 +124,41 @@ def register_callbacks(app):
         rep_status,
         rep_equip,
         rep_id,
+        page_size_value,
     ):
-        rep = df_repairs[df_repairs["month_key"] == month_key]
+        if C.is_all_months(month_key):
+            rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
+        else:
+            rep = df_repairs[df_repairs["month_key"] == month_key]
         rep_filters = {
             "status": rep_status or "All",
             "equipment_substr": rep_equip or "",
             "id_substr": rep_id or "",
         }
-        return build_replacement_table(rep, settings_data, rep_filters)
+        total = int(rep["equipId"].nunique()) if not rep.empty and "equipId" in rep.columns else 0
+        cols, records, cond = build_replacement_table(rep, settings_data, rep_filters)
+        return (
+            cols,
+            records,
+            cond,
+            C.resolve_page_size(page_size_value),
+            _format_row_count(len(records), total, "equipment item"),
+        )
 
     @app.callback(
         Output("order-roster-table", "columns"),
         Output("order-roster-table", "data"),
         Output("order-roster-table", "style_data_conditional"),
+        Output("order-roster-table", "page_size"),
         Output("order-filter-category", "options"),
+        Output("order-row-count", "children"),
         Input("month-select", "value"),
         Input("settings-store", "data"),
         Input("order-filter-category", "value"),
         Input("order-filter-status", "value"),
         Input("order-filter-equipment", "value"),
         Input("order-filter-id", "value"),
+        Input("order-page-size", "value"),
     )
     def update_order_roster_table(
         month_key,
@@ -130,18 +167,30 @@ def register_callbacks(app):
         order_status,
         order_equip,
         order_id,
+        page_size_value,
     ):
         _ = settings_data
-        svc = df_service[df_service["month_key"] == month_key]
+        if C.is_all_months(month_key):
+            svc = df_service[df_service["month_key"].astype(str) != "NaT"]
+        else:
+            svc = df_service[df_service["month_key"] == month_key]
         order_filters = {
             "category": order_cat or "",
             "status_substr": order_status or "",
             "equipment_substr": order_equip or "",
             "id_substr": order_id or "",
         }
+        total = int(len(svc))
         ocols, odata, ostyle = build_repair_orders_table(svc, order_filters)
         cat_opts = repair_order_filter_options(svc)
-        return ocols, odata, ostyle, cat_opts
+        return (
+            ocols,
+            odata,
+            ostyle,
+            C.resolve_page_size(page_size_value),
+            cat_opts,
+            _format_row_count(len(odata), total, "service line"),
+        )
 
     @app.callback(
         Output("order-filter-category", "value"),
@@ -241,7 +290,10 @@ def register_callbacks(app):
         base = merge_app_settings(current_store or {})
         by_m = dict(base.get("staffCapacityByMonth") or {})
         sc, hd, wd = sanitise_capacity_triple(staff, hours, days)
-        if month_key is not None:
+        # When "All months" is selected, Apply only updates the global defaults
+        # (the triple above), not any specific month override; otherwise persist
+        # the override for the currently-selected month.
+        if month_key is not None and not C.is_all_months(month_key):
             mks = str(month_key).strip()
             if mks and mks not in ("None", "nan", "NaT"):
                 by_m[mks] = {"staffCount": sc, "hoursPerDay": hd, "workDays": wd}

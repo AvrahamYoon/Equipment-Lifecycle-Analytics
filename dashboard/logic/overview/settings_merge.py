@@ -73,7 +73,7 @@ def staff_capacity_for_month(settings: dict, month_key: str | None) -> tuple[int
     if month_key is None or (isinstance(month_key, float) and str(month_key) == "nan"):
         return sc, hd, wd
     mk = str(month_key).strip()
-    if not mk or mk == "NaT":
+    if not mk or mk == "NaT" or mk.upper() == C.ALL_MONTHS_KEY:
         return sc, hd, wd
     bym = settings.get("staffCapacityByMonth")
     if not isinstance(bym, dict):

@@ -8,31 +8,6 @@ _DEFAULTS = C.default_app_settings()
 
 
 def overview_page_body():
-    _tbl = {
-        "overflowX": "auto",
-        "borderRadius": 10,
-        "overflow": "hidden",
-    }
-    _hdr = {
-        "backgroundColor": "#f8fafc",
-        "color": C.COLOR_TEXT_SECONDARY,
-        "fontWeight": "700",
-        "fontSize": 11,
-        "textTransform": "uppercase",
-        "letterSpacing": "0.06em",
-        "borderBottom": f"2px solid {C.COLOR_BORDER}",
-        "padding": "10px 14px",
-        "border": "none",
-    }
-    _cell = {
-        "backgroundColor": C.BG_CARD,
-        "color": C.COLOR_TEXT_PRIMARY,
-        "fontSize": 13,
-        "padding": "10px 14px",
-        "border": "none",
-        "borderBottom": f"1px solid {C.COLOR_BORDER}",
-        "fontFamily": "'DM Sans','Segoe UI',sans-serif",
-    }
     return html.Div(
         [
             html.Div(
@@ -125,50 +100,6 @@ def overview_page_body():
                 style={"display": "flex", "gap": 16, "marginBottom": 20},
             ),
             html.Div(
-                [
-                    html.Div(
-                        [
-                            html.Span(
-                                "📊",
-                                style={"fontSize": 16, "marginRight": 8, "lineHeight": 1},
-                            ),
-                            html.Span(
-                                "Monthly repair hours by equipment class",
-                                style={
-                                    "fontSize": 14,
-                                    "fontWeight": 700,
-                                    "color": C.COLOR_TEXT_PRIMARY,
-                                },
-                            ),
-                        ],
-                        style={"display": "flex", "alignItems": "center", "marginBottom": 8},
-                    ),
-                    html.Div(
-                        "Totals repair person-hours for the selected month, using the same equipment classes "
-                        "as the Repair Hours chart above.",
-                        style={
-                            "fontSize": 12,
-                            "color": C.COLOR_TEXT_SECONDARY,
-                            "marginBottom": 12,
-                            "lineHeight": 1.45,
-                        },
-                    ),
-                    dash_table.DataTable(
-                        id="overview-category-hours-table",
-                        columns=[],
-                        data=[],
-                        page_size=12,
-                        style_table=_tbl,
-                        style_header=_hdr,
-                        style_cell=_cell,
-                        style_data_conditional=[
-                            {"if": {"row_index": "odd"}, "backgroundColor": "#fafbfc"},
-                        ],
-                    ),
-                ],
-                style={**C.CARD_STYLE, "padding": "16px 18px 12px", "marginBottom": 20},
-            ),
-            html.Div(
                 id="footer-text",
                 style={
                     "textAlign": "center",
@@ -186,6 +117,37 @@ def overview_page_body():
             "margin": "0 auto",
             "minWidth": 0,
         },
+    )
+
+
+def _table_info_bar(row_count_id: str, page_size_id: str, item_label: str = "rows"):
+    """Strip above each DataTable: row-count pill on the left, segmented
+    Rows-per-page control on the right."""
+    return html.Div(
+        [
+            html.Div(
+                f"Showing 0 of 0 {item_label}",
+                id=row_count_id,
+                className="row-count",
+            ),
+            html.Div(
+                [
+                    html.Span("Rows per page", className="page-size-caption"),
+                    dcc.RadioItems(
+                        id=page_size_id,
+                        options=C.PAGE_SIZE_OPTIONS,
+                        value=C.DEFAULT_PAGE_SIZE,
+                        inline=True,
+                        className="page-size-radio",
+                        labelClassName="page-size-radio-label",
+                        inputClassName="page-size-radio-input",
+                        labelStyle={},  # override the default {display: inline-block}
+                    ),
+                ],
+                className="page-size-wrap",
+            ),
+        ],
+        className="table-info-bar",
     )
 
 
@@ -431,17 +393,47 @@ def replacement_page_body():
         },
     )
 
+    _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "80% Threshold", "60% Threshold"]
+    replace_cell_cond = [
+        {"if": {"column_id": "Status"}, "minWidth": 130, "width": 130, "maxWidth": 150, "fontWeight": 600},
+        {"if": {"column_id": "Equipment"}, "minWidth": 180, "maxWidth": 280},
+        {"if": {"column_id": "ID"}, "minWidth": 130, "maxWidth": 170, "color": C.COLOR_TEXT_SECONDARY},
+    ] + [
+        {"if": {"column_id": c}, "textAlign": "right", "minWidth": 110, "maxWidth": 140}
+        for c in _money_cols
+    ]
+    replace_header_cond = [
+        {"if": {"column_id": c}, "textAlign": "right"} for c in _money_cols
+    ]
+
     return html.Div(
         [
             hero,
             toolbar,
-            dash_table.DataTable(
-                id="replace-table",
-                style_table=_tbl,
-                style_header=_hdr,
-                style_cell=_cell,
-                style_data_conditional=[],
-                page_size=20,
+            _table_info_bar(
+                row_count_id="replace-row-count",
+                page_size_id="replace-page-size",
+                item_label="equipment items",
+            ),
+            html.Div(
+                dash_table.DataTable(
+                    id="replace-table",
+                    style_table={**_tbl, "maxHeight": "62vh"},
+                    style_header=_hdr,
+                    style_cell=_cell,
+                    style_cell_conditional=replace_cell_cond,
+                    style_header_conditional=replace_header_cond,
+                    style_data_conditional=[],
+                    page_size=C.DEFAULT_PAGE_SIZE,
+                    page_action="native",
+                    sort_action="native",
+                    fixed_rows={"headers": True},
+                ),
+                style={
+                    **C.CARD_STYLE,
+                    "padding": 0,
+                    "overflow": "hidden",
+                },
             ),
         ],
         id="page-replacement",
@@ -661,18 +653,50 @@ def order_roster_page_body():
         },
     )
 
+    bd_col = "Business days (excl. weekends & US holidays)"
+    order_cell_cond = [
+        {"if": {"column_id": "Equipment"}, "minWidth": 180, "maxWidth": 260},
+        {"if": {"column_id": "Equipment ID"}, "minWidth": 130, "maxWidth": 170, "color": C.COLOR_TEXT_SECONDARY},
+        {"if": {"column_id": "Category"}, "minWidth": 150, "maxWidth": 200},
+        {"if": {"column_id": "Status"}, "minWidth": 110, "maxWidth": 150, "fontWeight": 600},
+        {"if": {"column_id": "Start (scheduled)"}, "minWidth": 130, "maxWidth": 150, "textAlign": "right"},
+        {"if": {"column_id": "End (completed)"}, "minWidth": 130, "maxWidth": 150, "textAlign": "right"},
+        {"if": {"column_id": bd_col}, "minWidth": 130, "maxWidth": 200, "textAlign": "right", "fontWeight": 600},
+    ]
+    order_header_cond = [
+        {"if": {"column_id": "Start (scheduled)"}, "textAlign": "right"},
+        {"if": {"column_id": "End (completed)"}, "textAlign": "right"},
+        {"if": {"column_id": bd_col}, "textAlign": "right"},
+    ]
+
     return html.Div(
         [
             hero,
             toolbar,
-            dash_table.DataTable(
-                id="order-roster-table",
-                style_table=_tbl,
-                style_header=_hdr,
-                style_cell=_cell,
-                style_data_conditional=[],
-                page_size=20,
-                sort_action="native",
+            _table_info_bar(
+                row_count_id="order-row-count",
+                page_size_id="order-page-size",
+                item_label="service lines",
+            ),
+            html.Div(
+                dash_table.DataTable(
+                    id="order-roster-table",
+                    style_table={**_tbl, "maxHeight": "62vh"},
+                    style_header=_hdr,
+                    style_cell=_cell,
+                    style_cell_conditional=order_cell_cond,
+                    style_header_conditional=order_header_cond,
+                    style_data_conditional=[],
+                    page_size=C.DEFAULT_PAGE_SIZE,
+                    page_action="native",
+                    sort_action="native",
+                    fixed_rows={"headers": True},
+                ),
+                style={
+                    **C.CARD_STYLE,
+                    "padding": 0,
+                    "overflow": "hidden",
+                },
             ),
         ],
         id="page-orders",
