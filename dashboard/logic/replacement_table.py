@@ -6,10 +6,11 @@ from dashboard import constants as C
 from dashboard.logic.overview.settings_merge import merge_app_settings, replace_status_icons
 
 
-def build_replacement_table(rep: pd.DataFrame, app_settings=None):
+def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     """Returns (columns, records, style_data_conditional) for Dash DataTable."""
     merged = merge_app_settings(app_settings)
     ico = replace_status_icons(merged)
+    filters = filters or {}
 
     agg = rep.groupby("equipId").agg(
         equipment=("equipment", "first"),
@@ -26,6 +27,19 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None):
         lambda r: C.replace_status(r["labor"], r["parts"], r["newPrice"]),
         axis=1,
     )
+
+    st_f = (filters.get("status") or "All").strip()
+    if st_f and st_f != "All":
+        agg = agg[agg["Status"] == st_f]
+
+    eq_sub = (filters.get("equipment_substr") or "").strip().lower()
+    if eq_sub:
+        agg = agg[agg["equipment"].astype(str).str.lower().str.contains(eq_sub, na=False)]
+
+    id_sub = (filters.get("id_substr") or "").strip().lower()
+    if id_sub:
+        agg = agg[agg["equipId"].astype(str).str.lower().str.contains(id_sub, na=False)]
+
     agg = agg.sort_values("Status")
 
     table_data = agg.rename(

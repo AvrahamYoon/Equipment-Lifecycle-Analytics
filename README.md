@@ -10,6 +10,8 @@ Python utilities for work-order analytics (Dash dashboard) and equipment list cl
 | `dashboard/` | App package: `app.py`, `layouts/shell.py`, `callbacks/wiring.py`, `data_loaders.py`, `constants.py`, `taxonomy.py`, `calendar_util.py` |
 | `dashboard/logic/overview/` | Overview charts and KPI assembly (`figures.py`, `kpis.py`, `service_prep.py`, `settings_merge.py`) |
 | `dashboard/logic/replacement_table.py` | Replacement indicator `DataTable` |
+| `dashboard/logic/category_hours_table.py` | Overview summary: repair hours by equipment class |
+| `dashboard/logic/repair_orders_table.py` | **Order roster** `DataTable` (service lines + business-day span) |
 | `dashboard/logic/overview_charts.py` | Thin re-export of `build_overview` (compat) |
 | `list_clean.py` | Batch-clean Compuclean equipment exports: `data/equipment/raw/` → `data/equipment/cleaned/` |
 | `data/equipment/raw/*.csv` | **Raw** equipment list downloads (before clean) |
@@ -44,15 +46,16 @@ Open `http://127.0.0.1:8050`.
 
 ### UI
 
-- **Left navigation** (fixed; main content scrolls independently): **Overview**, **Replacement table**, **Settings**.
+- **Left navigation** (fixed; main content scrolls): **Workspace** — Overview, Replacement (`/replacement`), Order roster (`/orders`); **Preferences** — Settings. Active item is highlighted; sidebar uses a light gradient.
 - **Header**: title, subtitle, and **Month** dropdown (filters all pages that use month-scoped data).
-- **Overview**: KPI row, repair hours, request calendar, gauges, staff capacity bar, turnaround and availability charts.
-- **Replacement table**: equipment replacement indicator grid; status badges and header icons follow **Settings** when configured.
-- **Settings**: preferences stored in the browser (`dcc.Store` with `storage_type="local"`). **Apply** saves; **Reset to defaults** restores factory defaults.
+- **Overview**: KPI row, charts, then at the **bottom** a **Monthly repair hours by equipment class** table (same classes as the repair-hours chart).
+- **Replacement** (`/replacement`): full-width **Equipment Replacement Indicator** — hero card, rule chips, filter toolbar, replacement `DataTable`.
+- **Order roster** (`/orders`): full-width service-line roster — hero card, filter toolbar, order `DataTable` (scheduled → completed, business days). Icons for the Order roster nav link and page hero share **Order roster link** in Settings.
+- **Settings**: preferences in browser local storage (**Apply** / **Reset**). Icons include **Order roster link** for nav + page title.
   - **Staff capacity**: saved **per calendar month** using the same **Month** control in the header. Pick a month, edit values, Apply. Months without a saved entry use the global defaults (also written on Apply).
   - **Availability model**: base days used in the availability chart.
   - **Request calendar**: week starts on Sunday or Monday.
-  - **Icons**: KPI cards, nav links, and replacement-page / table badge prefixes (emoji or short text).
+  - **Icons**: KPI cards, nav links (including Order roster), replacement table badge prefixes, and replacement page title icon.
   - **Data paths** for CSV inputs are not editable in the UI; they are defined in `dashboard/constants.py` (`REQUESTS_DIR`, `SERVICE_DIR`, `REPAIRS_DIR`, `EQUIPMENT_SUMMARY_CSV`). Restart the app after changing paths.
 
 The app is created with `update_title=None` so the browser tab title stays **Work Order Dashboard** instead of Dash’s temporary “Updating…” during callbacks.

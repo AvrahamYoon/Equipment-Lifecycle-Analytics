@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from dashboard.logic.category_hours_table import build_category_hours_table
 from dashboard.logic.overview.figures import (
     build_avg_repair_hours_figure,
     build_availability_figure,
@@ -29,10 +30,11 @@ def build_overview(
     df_equip: pd.DataFrame,
     app_settings: dict[str, Any] | None = None,
 ):
-    """Returns (kpis, hours_fig, cal_fig, completion_fig, avghours_fig, staff_fig, turnaround_fig, avail_fig, footer)."""
+    """Returns (kpis, cat_cols, cat_data, hours_fig, cal_fig, completion_fig, avghours_fig, staff_fig, turnaround_fig, avail_fig, footer)."""
     s = merge_app_settings(app_settings)
 
     kpis = build_kpi_children(req, svc, rep, kpi_icon_list(s))
+    cat_cols, cat_data = build_category_hours_table(rep)
     hours_fig = build_repair_hours_figure(rep)
     cal_fig = build_request_calendar_figure(month_key, req, s["weekStartsOn"])
     footer = build_overview_footer(month_key, rep, svc)
@@ -49,6 +51,8 @@ def build_overview(
 
     return (
         kpis,
+        cat_cols,
+        cat_data,
         hours_fig,
         cal_fig,
         completion_fig,

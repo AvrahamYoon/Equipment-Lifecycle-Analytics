@@ -31,6 +31,7 @@ def default_app_settings():
         "iconKpiLabor": "👤",
         "iconNavOverview": "📊",
         "iconNavReplacement": "🚦",
+        "iconNavOrders": "📋",
         "iconNavSettings": "⚙️",
         "iconReplaceTitle": "🚦",
         "iconReplaceStatusReplace": "🔴",
