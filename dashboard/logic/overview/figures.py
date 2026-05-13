@@ -170,10 +170,83 @@ def build_request_calendar_figure(month_key: str, req: pd.DataFrame, week_starts
     return fig
 
 
+def build_request_volume_by_month_figure(req: pd.DataFrame) -> go.Figure:
+    """Aggregate-view replacement for the per-month calendar: one bar per month."""
+    if req.empty or "month_key" not in req.columns:
+        fig = go.Figure()
+        fig.update_layout(
+            title=dict(
+                text="Request Volume — no requests loaded",
+                font=dict(size=14, color=C.COLOR_TEXT_PRIMARY),
+                x=0.02,
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=C.CHART_FONT,
+            margin=dict(l=10, r=10, t=45, b=30),
+        )
+        return fig
+
+    counts = (
+        req.loc[req["month_key"].notna() & (req["month_key"].astype(str) != "NaT"), "month_key"]
+        .value_counts()
+        .sort_index()
+    )
+    months = list(counts.index)
+    labels = [pd.Period(m).strftime("%b %Y") for m in months]
+    values = [int(v) for v in counts.values]
+
+    fig = go.Figure(
+        go.Bar(
+            x=labels,
+            y=values,
+            marker=dict(color=C.C_BLUE, opacity=0.85, line=dict(width=0)),
+            text=[str(v) for v in values],
+            textposition="outside",
+            textfont=dict(size=12, color=C.COLOR_TEXT_SECONDARY),
+            cliponaxis=False,
+        )
+    )
+    total = sum(values)
+    fig.update_layout(
+        title=dict(
+            text=f"Request Volume by Month  ·  {total} total",
+            font=dict(
+                color=C.COLOR_TEXT_PRIMARY,
+                size=14,
+                family="'DM Sans','Segoe UI',sans-serif",
+            ),
+            x=0.02,
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=C.CHART_FONT,
+        xaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            tickfont=dict(color=C.COLOR_TEXT_SECONDARY, size=11),
+        ),
+        yaxis=dict(
+            gridcolor=C.COLOR_BORDER,
+            zeroline=False,
+            showline=False,
+            title=dict(text="Requests", font=dict(size=11, color=C.COLOR_TEXT_MUTED)),
+        ),
+        margin=dict(l=10, r=20, t=45, b=30),
+        bargap=0.4,
+        showlegend=False,
+    )
+    return fig
+
+
 def build_overview_footer(month_key: str, rep: pd.DataFrame, svc: pd.DataFrame) -> str:
-    period = pd.Period(month_key)
+    if C.is_all_months(month_key):
+        scope = "all months"
+    else:
+        scope = pd.Period(month_key).strftime("%B %Y")
     return (
-        f"Data reflects {period.strftime('%B %Y')}  ·  {len(rep)} repair records  ·  "
+        f"Data reflects {scope}  ·  {len(rep)} repair records  ·  "
         f"{len(svc)} service orders"
     )
 

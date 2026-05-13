@@ -13,6 +13,46 @@ DEFAULT_STAFF_COUNT = 4
 DEFAULT_HOURS_PER_STAFF_DAY = 4
 DEFAULT_WORK_DAYS_PER_MONTH = 20
 
+# Sentinel value used in the month dropdown to mean "aggregate across every
+# month loaded into the dashboard"; treated specially by callbacks and figure
+# builders so they skip the usual per-month filter.
+ALL_MONTHS_KEY = "ALL"
+ALL_MONTHS_LABEL = "All months"
+
+
+def is_all_months(month_key) -> bool:
+    """True when the month selector is on the aggregate 'All months' option."""
+    return str(month_key).strip().upper() == ALL_MONTHS_KEY
+
+
+# Rows-per-page dropdown values used on the Replacement and Order Roster
+# tables. ``ALL_PAGE_SIZE_VALUE`` is the user-facing sentinel that the
+# callback converts into ``ALL_PAGE_SIZE_LIMIT`` (a number large enough that
+# Dash effectively renders every row on a single page).
+DEFAULT_PAGE_SIZE = 20
+ALL_PAGE_SIZE_VALUE = "all"
+ALL_PAGE_SIZE_LIMIT = 100_000
+PAGE_SIZE_OPTIONS = [
+    {"label": "10", "value": 10},
+    {"label": "20", "value": 20},
+    {"label": "50", "value": 50},
+    {"label": "100", "value": 100},
+    {"label": "All", "value": ALL_PAGE_SIZE_VALUE},
+]
+
+
+def resolve_page_size(value) -> int:
+    """Map a dropdown choice (int or the 'all' sentinel) to a Dash page_size."""
+    if value is None:
+        return DEFAULT_PAGE_SIZE
+    if isinstance(value, str) and value.strip().lower() == ALL_PAGE_SIZE_VALUE:
+        return ALL_PAGE_SIZE_LIMIT
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_PAGE_SIZE
+    return max(1, min(ALL_PAGE_SIZE_LIMIT, n))
+
 
 def default_app_settings():
     """Defaults for user-tunable dashboard assumptions (persisted via dcc.Store)."""

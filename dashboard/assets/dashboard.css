@@ -1,0 +1,164 @@
+/* Dash DataTable polish for the Replacement and Order Roster pages.
+   Targets generic structural classes so it doesn't depend on a specific
+   Dash version's internal naming. */
+
+.dash-spreadsheet-inner tbody tr td {
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.dash-spreadsheet-inner tbody tr:hover td {
+  background-color: #eef4fb !important;
+}
+
+/* Sticky header — works together with fixed_rows={"headers": True}. */
+.dash-spreadsheet-inner thead th {
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+
+/* Subtle sort-arrow polish. */
+.dash-spreadsheet-inner .column-header--sort {
+  margin-left: 6px;
+  opacity: 0.45;
+  transition: opacity 0.12s ease;
+}
+.dash-spreadsheet-inner th:hover .column-header--sort,
+.dash-spreadsheet-inner .column-header.dash-header--sort-active .column-header--sort {
+  opacity: 1;
+}
+
+/* Tabular numerals — keeps cost/day columns aligned even at different widths. */
+.dash-spreadsheet-inner td,
+.dash-spreadsheet-inner th {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Soften the focus rectangle that Dash draws on the focused cell. */
+.dash-spreadsheet-inner td.focused,
+.dash-spreadsheet-inner td.cell--selected {
+  outline: none !important;
+  box-shadow: inset 0 0 0 1px #bfdbfe !important;
+}
+
+/* Page-size selector + row-count caption sitting above each table. */
+.table-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 2px 14px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* "Showing 23 of 59 equipment items" — rendered as a soft pill with a
+   leading status dot so it reads as a piece of UI, not body copy. */
+.table-info-bar .row-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.table-info-bar .row-count::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3b82f6;
+  flex-shrink: 0;
+}
+.table-info-bar .row-count strong {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.table-info-bar .page-size-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-info-bar .page-size-wrap > .page-size-caption {
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+/* Segmented "10 | 20 | 50 | 100 | All" control. The actual radio circle
+   is visually hidden but stays focusable for accessibility. */
+.page-size-radio {
+  display: inline-flex;
+  align-items: stretch;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.page-size-radio-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 !important;
+  user-select: none;
+  transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.page-size-radio-label:hover {
+  color: #1e293b;
+  background-color: rgba(255, 255, 255, 0.65);
+}
+
+.page-size-radio-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Active "pill" — :has() is supported in all evergreen browsers and
+   keeps the markup minimal (no callback needed to toggle a class). */
+.page-size-radio-label:has(.page-size-radio-input:checked) {
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.page-size-radio-label:focus-within {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 1px;
+}
+
+/* Reduce dash-table's built-in pagination crowding. */
+.dash-spreadsheet-container .previous-next-container {
+  padding: 8px 0;
+  font-size: 12px;
+  color: #475569;
+}
+.dash-spreadsheet-container .current-page {
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+}

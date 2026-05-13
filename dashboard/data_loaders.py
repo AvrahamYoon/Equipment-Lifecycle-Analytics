@@ -38,11 +38,30 @@ def _drop_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[:, ~df.columns.duplicated(keep="first")].copy()
 
 
+def _find_header_row(raw_all: pd.DataFrame, sentinel: str, max_scan: int = 10, default: int = 1) -> int:
+    """Locate the row whose first cell equals `sentinel` (case/space-insensitive).
+
+    Lets loaders accept exports with a variable number of title/subtitle rows
+    above the real header. Falls back to `default` so legacy single-preamble
+    files keep working unchanged.
+    """
+    needle = sentinel.strip().lower()
+    for i in range(min(max_scan, len(raw_all))):
+        cell = raw_all.iat[i, 0]
+        if pd.isna(cell):
+            continue
+        if str(cell).strip().lower() == needle:
+            return i
+    return default
+
+
 def load_requests(path: str) -> pd.DataFrame:
-    raw = pd.read_csv(path, header=None)
-    raw.columns = raw.iloc[1]
-    df = raw.iloc[2:].reset_index(drop=True)
-    df = df[df["Work Order #"].notna() & ~df["Work Order #"].str.startswith("Total")]
+    raw_all = pd.read_csv(path, header=None)
+    header_idx = _find_header_row(raw_all, "Work Order #", default=1)
+    raw = raw_all.iloc[header_idx:].reset_index(drop=True)
+    raw.columns = [str(c).strip() if not pd.isna(c) else "" for c in raw.iloc[0]]
+    df = raw.iloc[1:].reset_index(drop=True)
+    df = df[df["Work Order #"].notna() & ~df["Work Order #"].astype(str).str.startswith("Total")]
     df["Request Date"] = pd.to_datetime(df["Request Date"], format="%m/%d/%Y", errors="coerce")
     df["month_key"] = df["Request Date"].dt.to_period("M").astype(str)
     return df
@@ -67,7 +86,12 @@ def load_service(path: str) -> pd.DataFrame:
 
 
 def load_repairs(path: str) -> pd.DataFrame:
-    raw = pd.read_csv(path, skiprows=1, header=None)
+    raw_all = pd.read_csv(path, header=None)
+    # Newer exports prepend extra title / generated-on / group-header rows
+    # before the real column row. Detect it by the leading "#" cell instead
+    # of assuming a fixed skiprows.
+    header_idx = _find_header_row(raw_all, "#", default=1)
+    raw = raw_all.iloc[header_idx:].reset_index(drop=True)
     raw.columns = _unique_header_names([c for c in raw.iloc[0]])
     df = raw.iloc[1:].reset_index(drop=True)
 
@@ -195,7 +219,17 @@ def _load_repairs_merged() -> pd.DataFrame:
         raise FileNotFoundError(
             f"No *.csv under {C.REPAIRS_DIR!r}. Create the folder and add at least one repair export."
         )
-    return pd.concat([load_repairs(p) for p in paths], ignore_index=True)
+    frames = []
+    for p in paths:
+        df = load_repairs(p)
+        bad = int((df["month_key"].astype(str) == "NaT").sum()) if "month_key" in df.columns else 0
+        if bad:
+            print(
+                f"[load_repairs] {os.path.basename(p)}: {bad} row(s) had unparsable "
+                f"Completed Date (header row not detected?)."
+            )
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True)
 
 
 def load_equipment_summary() -> pd.DataFrame:
@@ -234,4 +268,6 @@ all_months = sorted(
     )
     if pd.notna(m) and str(m) != "NaT"
 )
-MONTH_OPTIONS = [{"label": pd.Period(m).strftime("%B %Y"), "value": m} for m in all_months]
+MONTH_OPTIONS = [{"label": C.ALL_MONTHS_LABEL, "value": C.ALL_MONTHS_KEY}] + [
+    {"label": pd.Period(m).strftime("%B %Y"), "value": m} for m in all_months
+]
