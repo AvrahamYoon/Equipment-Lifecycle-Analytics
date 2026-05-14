@@ -8,6 +8,7 @@ Python utilities for work-order analytics (Dash dashboard) and equipment list cl
 |------|------|
 | `work_order_dashboard.py` | Launches the Dash app (implementation in `dashboard/`) |
 | `dashboard/` | App package: `app.py`, `layouts/shell.py`, `callbacks/wiring.py`, `data_loaders.py`, `constants.py`, `taxonomy.py`, `calendar_util.py` |
+| `dashboard/sql/` | DuckDB query templates used by `data_loaders.py` (merge + CSV reads); edit SQL here, paths are wired in Python |
 | `dashboard/assets/dashboard.css` | Auto-loaded styling for the DataTables, info bar, focus states, hover lift, empty state, status pills, etc. |
 | `dashboard/logic/overview/` | Overview charts and KPI assembly (`figures.py`, `kpis.py`, `service_prep.py`, `settings_merge.py`) |
 | `dashboard/logic/replacement_table.py` | Replacement indicator `DataTable` |
@@ -24,10 +25,12 @@ Use **any filenames** you like. Every `*.csv` in a folder is loaded and merged; 
 
 The repair-list loader auto-detects the column row by scanning for the leading `#` cell, so exports with 1, 2, or 3 preamble rows (title / generated-at / group header) all parse correctly. When a file ends up with rows whose `Completed Date` could not be parsed, the count is printed to the console so format drift surfaces early instead of silently emptying the dashboard.
 
+**DuckDB (Plan A):** After each CSV is normalized in Python (requests/repairs still need header detection and column aliasing), multi-file folders are stacked with DuckDB `UNION ALL BY NAME` using `dashboard/sql/merge_union_by_name.sql`. Service per-file reads and equipment summary reads use `read_csv_auto` via `service_orders_from_csv.sql` and `equipment_summary_from_csv.sql`. Downstream code still receives pandas `DataFrame`s unchanged.
+
 ## Requirements
 
 ```bash
-pip install dash pandas plotly
+pip install dash pandas plotly duckdb
 ```
 
 Python 3.10+ recommended.
