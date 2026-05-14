@@ -117,7 +117,6 @@ def register_callbacks(app):
         Output("replace-table", "page_size"),
         Output("replace-row-count", "children"),
         Output("replace-empty-state", "style"),
-        Input("month-select", "value"),
         Input("settings-store", "data"),
         Input("replace-filter-status", "value"),
         Input("replace-filter-equipment", "value"),
@@ -125,17 +124,15 @@ def register_callbacks(app):
         Input("replace-page-size", "value"),
     )
     def update_replacement_table(
-        month_key,
         settings_data,
         rep_status,
         rep_equip,
         rep_id,
         page_size_value,
     ):
-        if C.is_all_months(month_key):
-            rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
-        else:
-            rep = df_repairs[df_repairs["month_key"] == month_key]
+        # Replacement is always **cumulative**: every repair row from every
+        # loaded month (header month scope applies only to Overview & Order roster).
+        rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
         rep_filters = {
             "status": rep_status or "All",
             "equipment_substr": rep_equip or "",
@@ -299,9 +296,10 @@ def register_callbacks(app):
         base = merge_app_settings(current_store or {})
         by_m = dict(base.get("staffCapacityByMonth") or {})
         sc, hd, wd = sanitise_capacity_triple(staff, hours, days)
-        # When "All months" is selected, Apply only updates the global defaults
-        # (the triple above), not any specific month override; otherwise persist
-        # the override for the currently-selected month.
+        # staffCapacityByMonth is used **only by Overview** (staff utilization bar).
+        # When "All months" is selected in the header, Apply only updates the
+        # global defaults (the triple above), not any per-calendar-month override;
+        # otherwise persist the override for the month shown in the header.
         if month_key is not None and not C.is_all_months(month_key):
             mks = str(month_key).strip()
             if mks and mks not in ("None", "nan", "NaT"):

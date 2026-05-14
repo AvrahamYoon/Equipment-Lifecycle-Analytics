@@ -1,4 +1,8 @@
-"""Equipment replacement indicator table from repair aggregates."""
+"""Equipment replacement indicator table from **cumulative** repair aggregates.
+
+Callers should pass every repair row to aggregate (typically all months loaded
+from disk); the dashboard wires this independently of the header month filter.
+"""
 
 import pandas as pd
 

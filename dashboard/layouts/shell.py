@@ -241,15 +241,21 @@ def replacement_page_body():
                                 },
                             ),
                             html.P(
-                                "Per equipment: sum of parts + labor vs. estimated new price. "
-                                "Replace when spend reaches at least 80% of that price; Monitor from 60% up to 80%; "
-                                "Good below 60%. Use the month selector (or All months) to choose the period.",
+                                [
+                                    "Per equipment: ",
+                                    html.Strong("cumulative"),
+                                    " parts + labor across every repair month loaded from ",
+                                    html.Code("data/repairs/"),
+                                    " (the header month control does ",
+                                    html.Strong("not"),
+                                    " apply here). Compare to estimated new price: Replace ≥ 80%, Monitor 60–80%, Good < 60%.",
+                                ],
                                 style={
                                     "margin": "6px 0 0",
                                     "fontSize": 13,
                                     "color": C.COLOR_TEXT_SECONDARY,
                                     "lineHeight": 1.45,
-                                    "maxWidth": 720,
+                                    "maxWidth": 780,
                                 },
                             ),
                         ]
@@ -795,19 +801,20 @@ def settings_page_body():
                         },
                     ),
                     html.P(
-                        "Tune assumptions used on the Overview page. Values are saved in this browser "
-                        "(local storage).",
+                        "These values drive the Overview page (KPIs, charts, staff utilization, availability, "
+                        "request calendar) and how the header month selector scopes data. "
+                        "The Replacement page always uses cumulative repair totals and ignores that selector.",
                         style={**muted, "marginBottom": 20},
                     ),
                 ]
             ),
             section(
-                "Staff capacity (utilization bar)",
-                "Saved per calendar month using the Month selector in the header. "
-                "Choose the month, edit staff count / hours per day / work days in that month, then Apply. "
-                "Months you have not saved yet use the global defaults shown in these fields (they are updated "
-                "when you Apply). The Overview utilization bar always follows the month currently selected "
-                "in the header.",
+                "Staff capacity (Overview utilization bar)",
+                "Overview only — does not affect Replacement. Saved per calendar month using the Month selector "
+                "in the header: pick a month, edit staff / hours / day / work days, then Apply. "
+                "When the header shows All months, Apply updates only the global defaults shown here; the "
+                "Overview bar in that mode scales available capacity by how many months have data. "
+                "Months you have not saved yet use those globals until you Apply for that month.",
                 [
                     html.Div(
                         [
@@ -852,8 +859,8 @@ def settings_page_body():
                 ],
             ),
             section(
-                "Availability model",
-                "Base period (days) caps downtime per asset when computing the availability % chart.",
+                "Availability model (Overview)",
+                "Overview only — base period (days) caps downtime per asset when computing the availability % chart.",
                 [
                     html.Div(
                         [
@@ -871,8 +878,8 @@ def settings_page_body():
                 ],
             ),
             section(
-                "Request calendar",
-                "Choose whether the calendar grid labels start on Sunday or Monday.",
+                "Request calendar (Overview)",
+                "Overview only — choose whether the request calendar grid labels start on Sunday or Monday.",
                 [
                     html.Div(
                         [
@@ -1393,6 +1400,16 @@ def build_root_layout(month_options, default_month):
                                         value=default_month,
                                         clearable=False,
                                         style={"width": 180, "fontFamily": "inherit", "fontSize": 13},
+                                    ),
+                                    html.Div(
+                                        "Filters Overview & Order roster. Replacement always rolls up every loaded month.",
+                                        style={
+                                            "fontSize": 10,
+                                            "color": C.COLOR_TEXT_MUTED,
+                                            "marginTop": 6,
+                                            "maxWidth": 200,
+                                            "lineHeight": 1.35,
+                                        },
                                     ),
                                 ]
                             ),
