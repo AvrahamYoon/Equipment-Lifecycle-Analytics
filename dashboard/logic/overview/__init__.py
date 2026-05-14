@@ -1,4 +1,10 @@
-"""Overview page: KPIs + charts assembled from focused builders."""
+"""Overview page: KPIs + charts assembled from focused builders.
+
+The ``req`` / ``svc`` / ``rep`` frames passed in must already be scoped by the
+header **Month** control (single ``YYYY-MM`` or every month when ``ALL``).
+That scoping happens in ``callbacks.wiring.update_overview`` — it is separate
+from the Replacement page, which always aggregates cumulative repairs.
+"""
 
 from __future__ import annotations
 
@@ -44,7 +50,13 @@ def build_overview(
     df_equip: pd.DataFrame,
     app_settings: dict[str, Any] | None = None,
 ):
-    """Returns (kpis, hours_fig, cal_fig, completion_fig, avghours_fig, staff_fig, turnaround_fig, avail_fig, footer)."""
+    """Assemble Overview outputs for one header scope.
+
+    ``month_key`` mirrors the Month selector (including ``ALL``). Staff
+    capacity uses ``staff_capacity_for_month`` in single-month mode and
+    scaled globals in ``ALL`` mode — both are Overview-only concerns.
+    Returns (kpis, hours_fig, cal_fig, completion_fig, avghours_fig, staff_fig, turnaround_fig, avail_fig, footer).
+    """
     s = merge_app_settings(app_settings)
     all_months_mode = C.is_all_months(month_key)
 

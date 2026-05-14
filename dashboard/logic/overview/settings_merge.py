@@ -66,7 +66,12 @@ def _merge_month_capacity_map(raw_map, merged_globals: dict) -> dict[str, dict]:
 
 
 def staff_capacity_for_month(settings: dict, month_key: str | None) -> tuple[int, float, int]:
-    """Resolved staff / hours / work_days for Overview (per-month override or global defaults)."""
+    """Resolved staff / hours / work_days for the **Overview** utilization bar.
+
+    Per-calendar-month overrides live in ``staffCapacityByMonth``; the Replacement
+    page does not use these values. ``month_key`` is the header selector: a
+    ``YYYY-MM`` period, ``ALL`` (use globals), or missing/invalid (globals).
+    """
     sc = int(settings["staffCount"])
     hd = float(settings["hoursPerDay"])
     wd = int(settings["workDays"])

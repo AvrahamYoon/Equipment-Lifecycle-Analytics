@@ -49,17 +49,14 @@ Open `http://127.0.0.1:8050`.
 ### UI
 
 - **Left navigation** (fixed; main content scrolls): **Workspace** — Overview, Replacement (`/replacement`), Order roster (`/orders`); **Preferences** — Settings. Active item is highlighted; sidebar uses a light gradient.
-- **Header**: title, subtitle, and **Month** dropdown. The first option, **All months**, aggregates across every month loaded into the dashboard; pick a specific month (e.g. *March 2026*) to drill in. On first load the dashboard lands on **All months**.
-- **Overview**: KPI row + charts. In **All months** mode the calendar card is replaced by a **Request Volume by Month** bar chart, the staff-capacity bar scales its "available" total by the number of months in the data, and the footer reads *"Data reflects all months · N repair records · M service orders."* In a single-month view, the original day-of-month calendar returns.
-- **Replacement** (`/replacement`): full-width **Equipment Replacement Indicator** — hero card with rule chips (thresholds are **shares of estimated new equipment price**), filter toolbar (Status / Equipment contains / ID contains), then a polished `DataTable`:
-  - Native column sort, sticky header, hover-row highlight, right-aligned money columns with `tabular-nums`.
-  - Above the table: a *"Showing X of Y equipment items"* pill on the left and a segmented **Rows per page** selector (10 / 20 / 50 / 100 / All) on the right.
-  - When filters return zero rows, a friendly empty-state panel ("No matching equipment") appears in place of the table body.
+- **Header**: title, subtitle, and **Month** dropdown. **All months** or a specific month filters **Overview** and **Order roster** only. A hint under the control states that **Replacement** always rolls up every loaded repair month (cumulative). On first load the dashboard lands on **All months**.
+- **Overview**: KPI row + charts; data and the staff-utilization assumptions follow the header month (or **All months** aggregate). In **All months** mode the calendar card is replaced by a **Request Volume by Month** bar chart, the staff-capacity bar scales its "available" total by the number of months in the data, and the footer reads *"Data reflects all months · N repair records · M service orders."* In a single-month view, the original day-of-month calendar returns. **Settings** (staff, availability base days, week start) apply here, not on Replacement.
+- **Replacement** (`/replacement`): **always cumulative** — every repair row from every `data/repairs/` month is grouped by equipment ID (the header month selector is ignored). Hero + rule chips describe the **share of estimated new equipment price** (80% / 60% thresholds). Filter toolbar + polished `DataTable` (sort, sticky header, row-count pill, page-size segments, empty state) as before.
 - **Order roster** (`/orders`): full-width service-line roster — hero card, filter toolbar (Equipment class / Status / Equipment / ID), order `DataTable` (scheduled → completed → business days). Same polish set as Replacement: sticky header, native sort, hover, page-size selector, *"Showing X of Y service lines"* pill, and a *"No matching service lines"* empty state. Icons for the Order-roster nav link and page hero share **Order roster link** in Settings.
-- **Settings**: preferences in browser local storage (**Apply** / **Reset**). Icons include **Order roster link** for nav + page title.
-  - **Staff capacity**: saved **per calendar month** using the same **Month** control in the header. Pick a month, edit values, Apply. Months without a saved entry use the global defaults (also written on Apply). When the header is on **All months**, Apply only updates the global defaults — it does not write per-month overrides.
-  - **Availability model**: base days used in the availability chart.
-  - **Request calendar**: week starts on Sunday or Monday.
+- **Settings**: preferences in browser local storage (**Apply** / **Reset**). Most knobs are **Overview-only** (see section titles in the UI). Icons include **Order roster link** for nav + page title.
+  - **Staff capacity (Overview utilization bar)**: saved per calendar month via the header Month control; **All months** + Apply updates globals only; per-month overrides drive the bar when a single month is selected. Does **not** affect Replacement.
+  - **Availability model (Overview)**: base days for the availability chart.
+  - **Request calendar (Overview)**: week starts Sunday or Monday.
   - **Icons**: KPI cards, nav links (including Order roster), replacement table badge prefixes, and replacement page title icon.
   - **Data paths** for CSV inputs are not editable in the UI; they are defined in `dashboard/constants.py` (`REQUESTS_DIR`, `SERVICE_DIR`, `REPAIRS_DIR`, `EQUIPMENT_SUMMARY_CSV`). Restart the app after changing paths.
 
@@ -99,7 +96,7 @@ Outputs in `data/equipment/cleaned/`:
 
 ## Replacement rule (dashboard)
 
-Per **equipment ID**, labor and parts are summed over the period selected in the header (a single month or **All months**). Let **R** = labor + parts and **N** = estimated new price (`newPrice`, inferred from equipment name in `load_repairs` in `dashboard/data_loaders.py`).
+Per **equipment ID**, **R** = cumulative labor + parts summed across **every repair row loaded** from `data/repairs/` (all `month_key` values except invalid `NaT`). **N** = estimated new price (`newPrice`, inferred from equipment name in `load_repairs` in `dashboard/data_loaders.py`). The header **Month** selector does **not** change this table.
 
 - **Replace** if **R ≥ 0.80 × N** (cumulative repair has reached at least **80% of** the new-equipment price).
 - **Monitor** if **0.60 × N ≤ R < 0.80 × N** (between **60% and 80%** of that price).
@@ -107,9 +104,6 @@ Per **equipment ID**, labor and parts are summed over the period selected in the
 
 The table shows dollar cutoffs **"80% of new price"** and **"60% of new price"** (= 0.8×N and 0.6×N) next to **Total Cost** so the comparison is obvious.
 
-### Monthly vs. all months for Replacement
+### Month selector vs. Replacement
 
-- **All months** answers *"Across everything we have loaded, which assets are trending toward replace?"* — good for a fleet snapshot and prioritization.
-- **Single month** answers *"What crossed the line this month?"* — good for month-end review and matching other monthly reports.
-
-Keeping **both** (as the shared month control already does) is usually best: default to **All months** for the big picture, then pick a month when you need to reconcile with accounting or a specific export. If the table ever feels too long in **All months**, rely on filters, status, and **Rows per page** rather than dropping the aggregate view entirely.
+Use the header month control for **Overview** and **Order roster**. **Replacement** is intentionally **lifetime / fleet cumulative** for every CSV month you have added: add January–April exports and the table reflects all of them together. To “reset” the horizon, remove or swap files under `data/repairs/` and restart the app.
