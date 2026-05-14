@@ -1,31 +1,6 @@
 # Equipment Lifecycle Analytics
 
-Python utilities for work-order analytics (Dash dashboard) and equipment list cleanup.
-
-## Layout
-
-| Path | Role |
-|------|------|
-| `work_order_dashboard.py` | Launches the Dash app (implementation in `dashboard/`) |
-| `dashboard/` | App package: `app.py`, `layouts/shell.py`, `callbacks/wiring.py`, `data_loaders.py`, `constants.py`, `taxonomy.py`, `calendar_util.py` |
-| `dashboard/sql/` | DuckDB query templates used by `data_loaders.py` (merge + CSV reads); edit SQL here, paths are wired in Python |
-| `dashboard/assets/dashboard.css` | Auto-loaded styling for the DataTables, info bar, focus states, hover lift, empty state, status pills, etc. |
-| `dashboard/logic/overview/` | Overview charts and KPI assembly (`figures.py`, `kpis.py`, `service_prep.py`, `settings_merge.py`) |
-| `dashboard/logic/replacement_table.py` | Replacement indicator `DataTable` |
-| `dashboard/logic/repair_orders_table.py` | **Order roster** `DataTable` (service lines + business-day span) |
-| `dashboard/logic/overview_charts.py` | Thin re-export of `build_overview` (compat) |
-| `list_clean.py` | Batch-clean Compuclean equipment exports: `data/equipment/raw/` → `data/equipment/cleaned/` |
-| `data/equipment/raw/*.csv` | **Raw** equipment list downloads (before clean) |
-| `data/equipment/cleaned/*.csv` | **Cleaned** per-file outputs + `all_equipment_summary.csv` |
-| `data/requests/*.csv` | Work **request** exports (same column layout as your source system) |
-| `data/service/*.csv` | **Service** order exports |
-| `data/repairs/*.csv` | **Repair** work order exports |
-
-Use **any filenames** you like. Every `*.csv` in a folder is loaded and merged; add more files (e.g. one per month) as you go.
-
-The repair-list loader auto-detects the column row by scanning for the leading `#` cell, so exports with 1, 2, or 3 preamble rows (title / generated-at / group header) all parse correctly. When a file ends up with rows whose `Completed Date` could not be parsed, the count is printed to the console so format drift surfaces early instead of silently emptying the dashboard.
-
-**DuckDB (Plan A):** After each CSV is normalized in Python (requests/repairs still need header detection and column aliasing), multi-file folders are stacked with DuckDB `UNION ALL BY NAME` using `dashboard/sql/merge_union_by_name.sql`. Service per-file reads and equipment summary reads use `read_csv_auto` via `service_orders_from_csv.sql` and `equipment_summary_from_csv.sql`. Downstream code still receives pandas `DataFrame`s unchanged.
+Work-order analytics in a Dash dashboard plus an offline pipeline to normalize Compuclean equipment exports. CSVs under `data/` are the source of truth; the app loads them at startup and keeps chart logic in pandas.
 
 ## Requirements
 
@@ -35,78 +10,107 @@ pip install dash pandas plotly duckdb
 
 Python 3.10+ recommended.
 
-## Run the dashboard
+## Run
 
-1. Ensure these folders exist and each contains **at least one** `.csv`:
-   - `data/requests/`
-   - `data/service/`
-   - `data/repairs/`
-2. From the **project root**:
+**Dashboard** — from the repo root, with at least one `*.csv` in each of `data/requests/`, `data/service/`, and `data/repairs/`:
 
 ```bash
 python work_order_dashboard.py
 ```
 
-Open `http://127.0.0.1:8050`.
+Open `http://127.0.0.1:8050`. Paths are fixed in `dashboard/constants.py`; change them there and restart. If startup reports a missing folder, create it or add exports. Run from the project root so `data/...` resolves.
 
-### UI
-
-- **Left navigation** (fixed; main content scrolls): **Workspace** — Overview, Replacement (`/replacement`), Order roster (`/orders`); **Preferences** — Settings. Active item is highlighted; sidebar uses a light gradient.
-- **Header**: title, subtitle, and **Month** dropdown. **All months** or a specific month filters **Overview** and **Order roster** only. A hint under the control states that **Replacement** always rolls up every loaded repair month (cumulative). On first load the dashboard lands on **All months**.
-- **Overview**: KPI row + charts; data and the staff-utilization assumptions follow the header month (or **All months** aggregate). In **All months** mode the calendar card is replaced by a **Request Volume by Month** bar chart, the staff-capacity bar scales its "available" total by the number of months in the data, and the footer reads *"Data reflects all months · N repair records · M service orders."* In a single-month view, the original day-of-month calendar returns. **Settings** (staff, availability base days, week start) apply here, not on Replacement.
-- **Replacement** (`/replacement`): **always cumulative** — every repair row from every `data/repairs/` month is grouped by equipment ID (the header month selector is ignored). Hero + rule chips describe the **share of estimated new equipment price** (80% / 60% thresholds). Filter toolbar + polished `DataTable` (sort, sticky header, row-count pill, page-size segments, empty state) as before.
-- **Order roster** (`/orders`): full-width service-line roster — hero card, filter toolbar (Equipment class / Status / Equipment / ID), order `DataTable` (scheduled → completed → business days). Same polish set as Replacement: sticky header, native sort, hover, page-size selector, *"Showing X of Y service lines"* pill, and a *"No matching service lines"* empty state. Icons for the Order-roster nav link and page hero share **Order roster link** in Settings.
-- **Settings**: preferences in browser local storage (**Apply** / **Reset**). Most knobs are **Overview-only** (see section titles in the UI). Icons include **Order roster link** for nav + page title.
-  - **Staff capacity (Overview utilization bar)**: saved per calendar month via the header Month control; **All months** + Apply updates globals only; per-month overrides drive the bar when a single month is selected. Does **not** affect Replacement.
-  - **Availability model (Overview)**: base days for the availability chart.
-  - **Request calendar (Overview)**: week starts Sunday or Monday.
-  - **Icons**: KPI cards, nav links (including Order roster), replacement table badge prefixes, and replacement page title icon.
-  - **Data paths** for CSV inputs are not editable in the UI; they are defined in `dashboard/constants.py` (`REQUESTS_DIR`, `SERVICE_DIR`, `REPAIRS_DIR`, `EQUIPMENT_SUMMARY_CSV`). Restart the app after changing paths.
-
-The app is created with `update_title=None` so the browser tab title stays **Work Order Dashboard** instead of Dash's temporary "Updating…" during callbacks.
-
-If startup fails with "No *.csv under …", create the missing folder or add exports there. Run from the repo root so `data/...` paths resolve.
-
-### Reusable UI components (`dashboard/assets/dashboard.css`)
-
-The stylesheet is loaded automatically by Dash. It defines a small set of class-based components you can apply via `className=` without touching builders:
-
-| Class | What it does |
-|-------|--------------|
-| `lift-on-hover` | Subtle elevation (`translateY(-2px)` + deeper shadow) on hover. Drop next to any `CARD_STYLE` Div (KPIs, chart cards, hero cards). |
-| `fm-header`, `fm-toolbar` | Scope class for the header bar and any filter toolbar. All `dcc.Input` / `dcc.Dropdown` descendants get a unified blue focus ring + 10px-radius, white-card dropdown menu with hover/selected option styling. |
-| `row-count` | Pill-shaped *"Showing X of Y items"* caption with a leading status dot. Used above each DataTable. |
-| `page-size-radio` (+ `page-size-radio-label`, `page-size-radio-input`) | Segmented control built from `dcc.RadioItems` — works in place of a dropdown when there are only a handful of options. |
-| `empty-state` (+ `empty-state-icon`, `empty-state-title`, `empty-state-hint`) | Friendly "no results" panel; default `display: none` and toggled to `flex` by a callback when filtered rows hit zero. |
-| `section-eyebrow` (+ `--blue / --purple / --green / --orange / --muted`) | Small uppercase eyebrow label with a colored leading dot. |
-| `tag-pill` (+ `--red / --yellow / --green / --blue / --purple / --slate`) | Compact status / category chip with a leading dot in the current text color. |
-
-All DataTables additionally get: row hover (`#eef4fb`), sort-icon polish, `font-variant-numeric: tabular-nums` for vertically aligned digits, and a softened focused-cell outline.
-
-## Run the equipment cleaner
-
-1. Put Compuclean equipment exports in `data/equipment/raw/` (any `*.csv` filenames).
-2. From the project root:
+**Equipment cleaner** — put Compuclean exports in `data/equipment/raw/`, then:
 
 ```bash
 python list_clean.py
 ```
 
-Outputs in `data/equipment/cleaned/`:
+Writes per-file `*_cleaned.csv` and merged `all_equipment_summary.csv` (deduped by `EquipmentId`) under `data/equipment/cleaned/`.
 
-- `<original_name>_cleaned.csv` per input file
-- `all_equipment_summary.csv` merged and deduped by `EquipmentId`
+---
 
-## Replacement rule (dashboard)
+## Layout (paths)
 
-Per **equipment ID**, **R** = cumulative labor + parts summed across **every repair row loaded** from `data/repairs/` (all `month_key` values except invalid `NaT`). **N** = estimated new price (`newPrice`, inferred from equipment name in `load_repairs` in `dashboard/data_loaders.py`). The header **Month** selector does **not** change this table.
+| Path | Role |
+|------|------|
+| `work_order_dashboard.py` | Entry point for the Dash server |
+| `dashboard/` | Application package (factory, layout, callbacks, loaders, theme constants, taxonomy helpers, calendar helpers) |
+| `dashboard/sql/` | DuckDB SQL used for stacking multi-file exports and for selected `read_csv_auto` reads (wired from `data_loaders.py`) |
+| `dashboard/assets/dashboard.css` | Global styles: tables, header/toolbar focus, pills, empty states |
+| `dashboard/logic/overview/` | Overview KPIs, Plotly figures, service prep, settings merge |
+| `dashboard/logic/replacement_table.py` | Replacement `DataTable` (cumulative repair cost vs. estimated new price) |
+| `dashboard/logic/repair_orders_table.py` | Order roster `DataTable` (service lines, business-day span, filters) |
+| `dashboard/logic/overview_charts.py` | Compatibility re-export for `build_overview` |
+| `list_clean.py` | Batch equipment list cleanup |
+| `data/equipment/raw/`, `data/equipment/cleaned/` | Raw exports vs. cleaned outputs and summary |
+| `data/requests/`, `data/service/`, `data/repairs/` | Work request, service, and repair CSV exports (any filenames; all `*.csv` in a folder are merged) |
 
-- **Replace** if **R ≥ 0.80 × N** (cumulative repair has reached at least **80% of** the new-equipment price).
-- **Monitor** if **0.60 × N ≤ R < 0.80 × N** (between **60% and 80%** of that price).
-- **Good** if **R < 0.60 × N**. If **N** is missing or not positive, status stays **Good**.
+---
 
-The table shows dollar cutoffs **"80% of new price"** and **"60% of new price"** (= 0.8×N and 0.6×N) next to **Total Cost** so the comparison is obvious.
+## Modules
 
-### Month selector vs. Replacement
+Each block below is one slice of the codebase; the trickier areas (export formats and loading) get a bit more detail.
 
-Use the header month control for **Overview** and **Order roster**. **Replacement** is intentionally **lifetime / fleet cumulative** for every CSV month you have added: add January–April exports and the table reflects all of them together. To “reset” the horizon, remove or swap files under `data/repairs/` and restart the app.
+### Data loading (`data_loaders.py`, `dashboard/sql/`, `taxonomy.py`)
+
+Repair and request exports often ship with one or more preamble rows before the real header. Loaders scan the raw grid for sentinels (e.g. first-column `#` for repairs, `Work Order #` for requests), then normalize duplicate or blank header cells, map alias column names into stable fields, and coerce dates and numerics. Repair rows without a usable completed date are counted per file and logged so silent parse drift is visible.
+
+After each file is shaped in Python, all CSVs in a folder are stacked with DuckDB (`UNION ALL BY NAME` via `dashboard/sql/merge_union_by_name.sql`) instead of a large `pandas.concat`. Service files and the equipment summary are read through `read_csv_auto` in `dashboard/sql/`; taxonomy helpers (`norm_equip_id`, equipment classes, replacement price hints) still run in Python. Downstream callbacks receive the same pandas `DataFrame` objects as before.
+
+### Application shell (`app.py`, `layouts/shell.py`, `callbacks/wiring.py`)
+
+`create_app` registers callbacks and builds the root layout. The sidebar drives routes (`/`, `/replacement`, `/orders`, settings). Callbacks wire the month selector and `dcc.Store` settings into overview figures, the replacement table, and the order roster; `update_title=None` avoids the browser tab flashing Dash’s default “Updating…” during burst updates.
+
+### Overview (`logic/overview/`)
+
+Assembles KPIs and charts from filtered request, service, and repair frames plus the equipment summary. In **All months** mode the request calendar is replaced by a monthly volume bar chart, staff-capacity “available” hours scale with the number of months in the slice, and the footer summarizes repair and service counts; in a single-month view the day-of-month calendar returns. Staff capacity, availability base days, and week start come from merged settings, including per-month capacity overrides where applicable.
+
+### Replacement and order roster (`replacement_table.py`, `repair_orders_table.py`)
+
+Replacement rolls up **all** loaded repair months by equipment: cumulative labor and parts vs. an estimated new price from the equipment name, with Replace / Monitor / Good thresholds. The order roster lists service lines for the selected month (or all months), with filters and business-day calculations between scheduled and completed dates.
+
+### Styling (`dashboard/assets/dashboard.css`)
+
+Dash loads this automatically. It centralizes table hover, numeric alignment, filter-toolbar focus rings, row-count pills, page-size segments, empty-state panels, and small layout utilities so layouts mostly set `className` instead of duplicating inline style.
+
+### Offline cleaning (`list_clean.py`)
+
+Standalone script: reads raw equipment CSVs, normalizes fields, writes cleaned per-site files, and merges a deduplicated summary used by the dashboard’s availability and equipment-class logic when present.
+
+---
+
+## Dashboard pages (short tour)
+
+- **Overview** — KPI row and charts; respects the header **Month** (or **All months**) and Settings (staff, availability, calendar week start, icons where noted).
+- **Replacement** (`/replacement`) — Ignores the month dropdown; always cumulative across every repair file under `data/repairs/`.
+- **Order roster** (`/orders`) — Service lines for the selected month scope; filters for class, status, equipment text, and ID.
+- **Settings** — Mostly Overview-only; staff capacity can be overridden per calendar month. Preferences persist in the browser (Apply / Reset).
+
+---
+
+## Replacement rule
+
+Per **equipment ID**, let **R** = cumulative labor + parts over **all** repair rows (excluding invalid `NaT` months). Let **N** = estimated new price from the repair loader’s name-based map in `data_loaders.py`. The header month control does **not** change this view.
+
+- **Replace** if **R ≥ 0.80 × N**
+- **Monitor** if **0.60 × N ≤ R < 0.80 × N**
+- **Good** if **R < 0.60 × N**, or if **N** is missing or not positive
+
+The table labels the 80% and 60% dollar cutoffs next to total cost. To change the time horizon, add or remove files under `data/repairs/` and restart.
+
+---
+
+## CSS building blocks
+
+| Class | What it does |
+|-------|----------------|
+| `lift-on-hover` | Slight lift and stronger shadow on hover (use next to `CARD_STYLE` cards). |
+| `fm-header`, `fm-toolbar` | Scope for header and filter bars: unified focus ring and dropdown menu styling for nested inputs. |
+| `row-count` | “Showing X of Y …” pill with a leading dot. |
+| `page-size-radio` (+ `page-size-radio-label`, `page-size-radio-input`) | Segmented page-size control from `dcc.RadioItems`. |
+| `empty-state` (+ `empty-state-icon`, `empty-state-title`, `empty-state-hint`) | No-results panel; callbacks toggle `display`. |
+| `section-eyebrow` (+ `--blue / --purple / --green / --orange / --muted`) | Small uppercase section label with a colored dot. |
+| `tag-pill` (+ `--red / --yellow / --green / --blue / --purple / --slate`) | Compact status or category chip. |
+
+DataTables also get row hover, sort-icon tweaks, tabular numerals, and a softer focus outline on cells.
