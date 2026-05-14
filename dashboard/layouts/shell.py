@@ -241,7 +241,9 @@ def replacement_page_body():
                                 },
                             ),
                             html.P(
-                                "Roll-up of parts and labor vs. estimated new equipment price for the selected month.",
+                                "Per equipment: sum of parts + labor vs. estimated new price. "
+                                "Replace when spend reaches at least 80% of that price; Monitor from 60% up to 80%; "
+                                "Good below 60%. Use the month selector (or All months) to choose the period.",
                                 style={
                                     "margin": "6px 0 0",
                                     "fontSize": 13,
@@ -276,7 +278,7 @@ def replacement_page_body():
                         },
                     ),
                     html.Span(
-                        "(Labor+Parts)×0.80 ≥ New Price",
+                        "Labor + parts ≥ 80% of new-equipment price",
                         style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginRight": 18},
                     ),
                     html.Span(
@@ -298,7 +300,7 @@ def replacement_page_body():
                         },
                     ),
                     html.Span(
-                        "(Labor+Parts)×0.60 ≥ New Price",
+                        "≥ 60% and < 80% of new-equipment price",
                         style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginRight": 18},
                     ),
                     html.Span(
@@ -320,7 +322,7 @@ def replacement_page_body():
                         },
                     ),
                     html.Span(
-                        "Below both thresholds",
+                        "Below 60% of new-equipment price",
                         style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12},
                     ),
                 ],
@@ -401,7 +403,7 @@ def replacement_page_body():
         },
     )
 
-    _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "80% Threshold", "60% Threshold"]
+    _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "80% of new price", "60% of new price"]
     replace_cell_cond = [
         {"if": {"column_id": "Status"}, "minWidth": 130, "width": 130, "maxWidth": 150, "fontWeight": 600},
         {"if": {"column_id": "Equipment"}, "minWidth": 180, "maxWidth": 280},
