@@ -21,8 +21,9 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     ).reset_index(drop=True)
 
     agg["Total Cost"] = agg["labor"] + agg["parts"]
-    agg["80% Threshold"] = agg["Total Cost"] * 0.80
-    agg["60% Threshold"] = agg["Total Cost"] * 0.60
+    # Dollar cutoffs = that percentage of *estimated new equipment price*
+    agg["80% of new price"] = agg["newPrice"] * 0.80
+    agg["60% of new price"] = agg["newPrice"] * 0.60
     agg["Status"] = agg.apply(
         lambda r: C.replace_status(r["labor"], r["parts"], r["newPrice"]),
         axis=1,
@@ -59,8 +60,8 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
             "Labor Cost",
             "Total Cost",
             "New Price",
-            "80% Threshold",
-            "60% Threshold",
+            "80% of new price",
+            "60% of new price",
         ]
     ].copy()
 
@@ -69,8 +70,8 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         "Labor Cost",
         "Total Cost",
         "New Price",
-        "80% Threshold",
-        "60% Threshold",
+        "80% of new price",
+        "60% of new price",
     ]:
         table_data[col] = table_data[col].apply(lambda x: f"${x:,.2f}")
 

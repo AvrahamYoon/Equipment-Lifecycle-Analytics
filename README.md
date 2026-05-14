@@ -51,7 +51,7 @@ Open `http://127.0.0.1:8050`.
 - **Left navigation** (fixed; main content scrolls): **Workspace** — Overview, Replacement (`/replacement`), Order roster (`/orders`); **Preferences** — Settings. Active item is highlighted; sidebar uses a light gradient.
 - **Header**: title, subtitle, and **Month** dropdown. The first option, **All months**, aggregates across every month loaded into the dashboard; pick a specific month (e.g. *March 2026*) to drill in. On first load the dashboard lands on **All months**.
 - **Overview**: KPI row + charts. In **All months** mode the calendar card is replaced by a **Request Volume by Month** bar chart, the staff-capacity bar scales its "available" total by the number of months in the data, and the footer reads *"Data reflects all months · N repair records · M service orders."* In a single-month view, the original day-of-month calendar returns.
-- **Replacement** (`/replacement`): full-width **Equipment Replacement Indicator** — hero card with rule chips, filter toolbar (Status / Equipment contains / ID contains), then a polished `DataTable`:
+- **Replacement** (`/replacement`): full-width **Equipment Replacement Indicator** — hero card with rule chips (thresholds are **shares of estimated new equipment price**), filter toolbar (Status / Equipment contains / ID contains), then a polished `DataTable`:
   - Native column sort, sticky header, hover-row highlight, right-aligned money columns with `tabular-nums`.
   - Above the table: a *"Showing X of Y equipment items"* pill on the left and a segmented **Rows per page** selector (10 / 20 / 50 / 100 / All) on the right.
   - When filters return zero rows, a friendly empty-state panel ("No matching equipment") appears in place of the table body.
@@ -99,8 +99,17 @@ Outputs in `data/equipment/cleaned/`:
 
 ## Replacement rule (dashboard)
 
-- **Replace** if `(labor + parts) * 0.80 >= newPrice`
-- **Monitor** if `(labor + parts) * 0.60 >= newPrice`
-- **Good** otherwise
+Per **equipment ID**, labor and parts are summed over the period selected in the header (a single month or **All months**). Let **R** = labor + parts and **N** = estimated new price (`newPrice`, inferred from equipment name in `load_repairs` in `dashboard/data_loaders.py`).
 
-Costs are summed by `equipId` over the selected month (or across every month when **All months** is chosen). `newPrice` is inferred from the equipment name (see `load_repairs` in `dashboard/data_loaders.py`).
+- **Replace** if **R ≥ 0.80 × N** (cumulative repair has reached at least **80% of** the new-equipment price).
+- **Monitor** if **0.60 × N ≤ R < 0.80 × N** (between **60% and 80%** of that price).
+- **Good** if **R < 0.60 × N**. If **N** is missing or not positive, status stays **Good**.
+
+The table shows dollar cutoffs **"80% of new price"** and **"60% of new price"** (= 0.8×N and 0.6×N) next to **Total Cost** so the comparison is obvious.
+
+### Monthly vs. all months for Replacement
+
+- **All months** answers *"Across everything we have loaded, which assets are trending toward replace?"* — good for a fleet snapshot and prioritization.
+- **Single month** answers *"What crossed the line this month?"* — good for month-end review and matching other monthly reports.
+
+Keeping **both** (as the shared month control already does) is usually best: default to **All months** for the big picture, then pick a month when you need to reconcile with accounting or a specific export. If the table ever feels too long in **All months**, rely on filters, status, and **Rows per page** rather than dropping the aggregate view entirely.

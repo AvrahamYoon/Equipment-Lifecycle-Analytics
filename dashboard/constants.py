@@ -127,9 +127,24 @@ CARD_STYLE = {
 
 
 def replace_status(labor, parts, new_price):
-    combined = labor + parts
-    if combined * 0.80 >= new_price:
+    """Replace / Monitor / Good from cumulative repair vs. new-equipment price.
+
+    Rules use **repair as a share of estimated new price** (not ``repair×0.8``):
+    Replace if labor+parts ≥ 80% of new price; Monitor if ≥ 60% and < 80%;
+    Good if < 60%. If new price is missing or non-positive, treat as Good.
+    """
+    try:
+        np = float(new_price)
+    except (TypeError, ValueError):
+        np = 0.0
+    try:
+        combined = float(labor or 0) + float(parts or 0)
+    except (TypeError, ValueError):
+        combined = 0.0
+    if np <= 0:
+        return "Good"
+    if combined >= 0.80 * np:
         return "Replace"
-    if combined * 0.60 >= new_price:
+    if combined >= 0.60 * np:
         return "Monitor"
     return "Good"
