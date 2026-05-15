@@ -68,6 +68,7 @@ def build_repair_hours_figure(rep: pd.DataFrame) -> go.Figure:
         yaxis=dict(gridcolor="rgba(0,0,0,0)", tickcolor=C.COLOR_TEXT_MUTED, showline=False),
         margin=dict(l=10, r=48, t=48, b=28),
         bargap=0.35,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
 
@@ -166,6 +167,7 @@ def build_request_calendar_figure(month_key: str, req: pd.DataFrame, week_starts
         yaxis=dict(showticklabels=False, showgrid=False, zeroline=False, showline=False),
         margin=dict(l=10, r=10, t=45, b=10),
         showlegend=False,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
 
@@ -184,6 +186,7 @@ def build_request_volume_by_month_figure(req: pd.DataFrame) -> go.Figure:
             plot_bgcolor="rgba(0,0,0,0)",
             font=C.CHART_FONT,
             margin=dict(l=10, r=10, t=45, b=30),
+            transition={"duration": 500, "easing": "cubic-in-out"},
         )
         return fig
 
@@ -236,6 +239,7 @@ def build_request_volume_by_month_figure(req: pd.DataFrame) -> go.Figure:
         margin=dict(l=10, r=20, t=45, b=30),
         bargap=0.4,
         showlegend=False,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
 
@@ -304,8 +308,9 @@ def build_completion_rate_figure(svc: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=20, r=20, t=50, b=10),
-        height=260,
+        margin=dict(l=40, r=20, t=50, b=40),
+        height=280,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
 
@@ -366,8 +371,9 @@ def build_avg_repair_hours_figure(rep: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=20, r=20, t=50, b=10),
-        height=260,
+        margin=dict(l=40, r=20, t=50, b=40),
+        height=280,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
 
@@ -440,8 +446,9 @@ def build_staff_capacity_figure(
         ),
         yaxis=dict(showticklabels=False, showgrid=False, zeroline=False, showline=False),
         legend=dict(orientation="h", x=0.02, y=-0.15, font=dict(size=11, color=C.COLOR_TEXT_SECONDARY)),
-        margin=dict(l=10, r=20, t=50, b=40),
-        height=260,
+        margin=dict(l=40, r=20, t=50, b=40),
+        height=280,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
 
@@ -459,8 +466,9 @@ def build_turnaround_figure(done_svc: pd.DataFrame) -> go.Figure:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font=C.CHART_FONT,
-            margin=dict(l=20, r=20, t=50, b=20),
-            height=320,
+            margin=dict(l=40, r=20, t=50, b=40),
+            height=280,
+            transition={"duration": 500, "easing": "cubic-in-out"},
         )
         return fig
 
@@ -484,8 +492,9 @@ def build_turnaround_figure(done_svc: pd.DataFrame) -> go.Figure:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font=C.CHART_FONT,
-            margin=dict(l=20, r=20, t=50, b=20),
-            height=320,
+            margin=dict(l=40, r=20, t=50, b=40),
+            height=280,
+            transition={"duration": 500, "easing": "cubic-in-out"},
         )
         return fig
 
@@ -524,6 +533,7 @@ def build_turnaround_figure(done_svc: pd.DataFrame) -> go.Figure:
         margin=dict(l=10, r=52, t=52, b=30),
         bargap=0.35,
         height=320,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
 
@@ -582,8 +592,9 @@ def build_availability_figure(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font=C.CHART_FONT,
-            margin=dict(l=20, r=20, t=50, b=20),
-            height=320,
+            margin=dict(l=40, r=20, t=50, b=40),
+            height=280,
+            transition={"duration": 500, "easing": "cubic-in-out"},
         )
         return fig
 
@@ -624,5 +635,6 @@ def build_availability_figure(
         xaxis=dict(showline=False, tickangle=-25, automargin=True),
         margin=dict(l=8, r=12, t=44, b=88),
         height=320,
+        transition={"duration": 500, "easing": "cubic-in-out"},
     )
     return fig
