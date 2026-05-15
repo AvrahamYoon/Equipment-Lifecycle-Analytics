@@ -25,7 +25,7 @@ def overview_page_body():
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
                     ),
                     html.Div(
                         [
@@ -36,10 +36,10 @@ def overview_page_body():
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
                     ),
                 ],
-                style={"display": "flex", "gap": 16, "marginBottom": 20},
+                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
             ),
             html.Div(
                 [
@@ -52,7 +52,7 @@ def overview_page_body():
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "flex": "1", "minWidth": 240, "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
                     ),
                     html.Div(
                         [
@@ -63,7 +63,7 @@ def overview_page_body():
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "flex": "1", "minWidth": 240, "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
                     ),
                     html.Div(
                         [
@@ -74,10 +74,10 @@ def overview_page_body():
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "flex": "2", "minWidth": 320, "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
                     ),
                 ],
-                style={"display": "flex", "gap": 16, "marginBottom": 20},
+                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
             ),
             html.Div(
                 [
@@ -90,7 +90,7 @@ def overview_page_body():
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
                     ),
                     html.Div(
                         [
@@ -101,10 +101,10 @@ def overview_page_body():
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "flex": "1", "minWidth": 320, "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
                     ),
                 ],
-                style={"display": "flex", "gap": 16, "marginBottom": 20},
+                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
             ),
             html.Div(
                 id="footer-text",
