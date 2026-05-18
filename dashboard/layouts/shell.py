@@ -3,6 +3,7 @@
 from dash import dcc, html, dash_table
 
 from dashboard import constants as C
+from dashboard.equipment_pricing import PRICE_BASIS_TOOLTIP
 
 _DEFAULTS = C.default_app_settings()
 
@@ -414,6 +415,14 @@ def replacement_page_body():
         {"if": {"column_id": "Status"}, "minWidth": 130, "width": 130, "maxWidth": 150, "fontWeight": 600},
         {"if": {"column_id": "Equipment"}, "minWidth": 180, "maxWidth": 280},
         {"if": {"column_id": "ID"}, "minWidth": 130, "maxWidth": 170, "color": C.COLOR_TEXT_SECONDARY},
+        {
+            "if": {"column_id": "Price basis"},
+            "minWidth": 108,
+            "maxWidth": 130,
+            "textAlign": "center",
+            "fontSize": 12,
+            "padding": "8px 10px",
+        },
     ] + [
         {"if": {"column_id": c}, "textAlign": "right", "minWidth": 110, "maxWidth": 140}
         for c in _money_cols
@@ -441,6 +450,7 @@ def replacement_page_body():
                         style_cell_conditional=replace_cell_cond,
                         style_header_conditional=replace_header_cond,
                         style_data_conditional=[],
+                        tooltip_header={"Price basis": PRICE_BASIS_TOOLTIP},
                         page_size=C.DEFAULT_PAGE_SIZE,
                         page_action="native",
                         sort_action="native",

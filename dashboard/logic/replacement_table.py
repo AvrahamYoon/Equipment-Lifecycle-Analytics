@@ -7,6 +7,7 @@ from disk); the dashboard wires this independently of the header month filter.
 import pandas as pd
 
 from dashboard import constants as C
+from dashboard.equipment_pricing import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
 from dashboard.logic.overview.settings_merge import merge_app_settings, replace_status_icons
 
 
@@ -16,13 +17,18 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     ico = replace_status_icons(merged)
     filters = filters or {}
 
-    agg = rep.groupby("equipId").agg(
-        equipment=("equipment", "first"),
-        equipId=("equipId", "first"),
-        newPrice=("newPrice", "first"),
-        parts=("parts", "sum"),
-        labor=("labor", "sum"),
-    ).reset_index(drop=True)
+    agg_cols = {
+        "equipment": ("equipment", "first"),
+        "equipId": ("equipId", "first"),
+        "newPrice": ("newPrice", "first"),
+        "parts": ("parts", "sum"),
+        "labor": ("labor", "sum"),
+    }
+    if "priceSource" in rep.columns:
+        agg_cols["priceSource"] = ("priceSource", "first")
+    agg = rep.groupby("equipId").agg(**agg_cols).reset_index(drop=True)
+    if "priceSource" not in agg.columns:
+        agg["priceSource"] = ""
 
     agg["Total Cost"] = agg["labor"] + agg["parts"]
     # Dollar cutoffs = that percentage of *estimated new equipment price*
@@ -47,11 +53,16 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
 
     agg = agg.sort_values("Status")
 
+    agg["priceSource"] = agg["priceSource"].map(
+        lambda s: PRICE_SOURCE_LABEL.get(str(s).strip() if pd.notna(s) else "", "—")
+    )
+
     table_data = agg.rename(
         columns={
             "equipment": "Equipment",
             "equipId": "ID",
             "newPrice": "New Price",
+            "priceSource": PRICE_BASIS_COLUMN,
             "parts": "Parts Cost",
             "labor": "Labor Cost",
         }
@@ -64,6 +75,7 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
             "Labor Cost",
             "Total Cost",
             "New Price",
+            PRICE_BASIS_COLUMN,
             "80% of new price",
             "60% of new price",
         ]
@@ -100,11 +112,54 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         },
     }
 
+    price_basis_styles = {
+        "Accurate": {
+            "badge": "Accurate",
+            "cell": {
+                "backgroundColor": "#ecfdf5",
+                "color": "#047857",
+                "fontWeight": "700",
+                "border": "1px solid #a7f3d0",
+                "borderRadius": "999px",
+            },
+        },
+        "Estimated": {
+            "badge": "Estimated",
+            "cell": {
+                "backgroundColor": "#fffbeb",
+                "color": "#b45309",
+                "fontWeight": "700",
+                "border": "1px solid #fde68a",
+                "borderRadius": "999px",
+            },
+        },
+        "—": {
+            "badge": "—",
+            "cell": {
+                "color": C.COLOR_TEXT_MUTED,
+                "fontWeight": "500",
+            },
+        },
+    }
+
     for r in records:
         s = r.get("Status", "Good")
         r["Status"] = status_styles.get(s, status_styles["Good"])["badge"]
+        pb = r.get(PRICE_BASIS_COLUMN, "—")
+        r[PRICE_BASIS_COLUMN] = price_basis_styles.get(pb, price_basis_styles["—"])["badge"]
 
     cond_style = []
+    for label, style in price_basis_styles.items():
+        badge = style["badge"]
+        cond_style.append(
+            {
+                "if": {
+                    "filter_query": f'{{{PRICE_BASIS_COLUMN}}} = "{badge}"',
+                    "column_id": PRICE_BASIS_COLUMN,
+                },
+                **style["cell"],
+            }
+        )
     for status, style in status_styles.items():
         badge = style["badge"]
         cond_style.append(
