@@ -8,6 +8,12 @@ import pandas as pd
 
 from dashboard import constants as C
 from dashboard.equipment_pricing import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
+
+_BASIS_PILL_HTML = {
+    "Accurate": '<span class="basis-pill basis-pill--accurate">Accurate</span>',
+    "Estimated": '<span class="basis-pill basis-pill--estimated">Estimated</span>',
+    "—": '<span class="basis-pill basis-pill--unknown">—</span>',
+}
 from dashboard.logic.overview.settings_merge import merge_app_settings, replace_status_icons
 from dashboard.taxonomy import ensure_equip_id_norm_column, filter_equip_id_substr
 
@@ -97,7 +103,12 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         table_data[col] = table_data[col].apply(lambda x: f"${x:,.2f}")
 
     records = table_data.to_dict("records")
-    columns = [{"name": c, "id": c} for c in table_data.columns]
+    columns = []
+    for c in table_data.columns:
+        col = {"name": c, "id": c}
+        if c == PRICE_BASIS_COLUMN:
+            col["presentation"] = "markdown"
+        columns.append(col)
 
     status_styles = {
         "Replace": {
@@ -117,54 +128,13 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         },
     }
 
-    price_basis_styles = {
-        "Accurate": {
-            "badge": "Accurate",
-            "cell": {
-                "backgroundColor": "#ecfdf5",
-                "color": "#047857",
-                "fontWeight": "700",
-                "border": "1px solid #a7f3d0",
-                "borderRadius": "999px",
-            },
-        },
-        "Estimated": {
-            "badge": "Estimated",
-            "cell": {
-                "backgroundColor": "#fffbeb",
-                "color": "#b45309",
-                "fontWeight": "700",
-                "border": "1px solid #fde68a",
-                "borderRadius": "999px",
-            },
-        },
-        "—": {
-            "badge": "—",
-            "cell": {
-                "color": C.COLOR_TEXT_MUTED,
-                "fontWeight": "500",
-            },
-        },
-    }
-
     for r in records:
         s = r.get("Status", "Good")
         r["Status"] = status_styles.get(s, status_styles["Good"])["badge"]
         pb = r.get(PRICE_BASIS_COLUMN, "—")
-        r[PRICE_BASIS_COLUMN] = price_basis_styles.get(pb, price_basis_styles["—"])["badge"]
+        r[PRICE_BASIS_COLUMN] = _BASIS_PILL_HTML.get(pb, _BASIS_PILL_HTML["—"])
 
     cond_style = []
-    for label, style in price_basis_styles.items():
-        badge = style["badge"]
-        cond_style.append(
-            {
-                "if": {
-                    "filter_query": f'{{{PRICE_BASIS_COLUMN}}} = "{badge}"',
-                    "column_id": PRICE_BASIS_COLUMN,
-                },
-                **style["cell"],
-            }
-        )
     for status, style in status_styles.items():
         badge = style["badge"]
         cond_style.append(
@@ -182,8 +152,15 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         )
     cond_style.append(
         {
-            "if": {"row_index": "odd"},
-            "backgroundColor": "#fafbfc",
+            "if": {"column_id": "New Price"},
+            "fontWeight": "600",
+            "color": "#0f172a",
+        }
+    )
+    cond_style.append(
+        {
+            "if": {"column_id": "Total Cost"},
+            "fontWeight": "600",
         }
     )
 

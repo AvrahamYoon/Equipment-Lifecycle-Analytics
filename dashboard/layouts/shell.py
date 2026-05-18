@@ -164,24 +164,25 @@ def replacement_page_body():
     d = _DEFAULTS
     flabel = {"className": "filter-label"}
     _hdr = {
-        "backgroundColor": "transparent",
-        "color": C.COLOR_TEXT_MUTED,
-        "fontWeight": "700",
-        "fontSize": 10,
+        "backgroundColor": "#f8fafc",
+        "color": "#64748b",
+        "fontWeight": "600",
+        "fontSize": 11,
         "textTransform": "uppercase",
-        "letterSpacing": "0.1em",
+        "letterSpacing": "0.04em",
         "borderBottom": f"1px solid {C.COLOR_BORDER}",
-        "padding": "14px 16px",
+        "padding": "13px 16px",
         "border": "none",
     }
     _cell = {
         "backgroundColor": C.BG_CARD,
         "color": C.COLOR_TEXT_PRIMARY,
-        "fontSize": 13,
-        "padding": "14px 16px",
+        "fontSize": 14,
+        "padding": "13px 16px",
         "border": "none",
-        "borderBottom": f"1px solid rgba(226, 232, 240, 0.7)",
+        "borderBottom": f"1px solid rgba(226, 232, 240, 0.65)",
         "fontFamily": "inherit",
+        "lineHeight": "1.45",
     }
     _tbl = {"overflowX": "auto", "borderRadius": 0, "overflow": "hidden", "border": "none"}
 
@@ -330,19 +331,21 @@ def replacement_page_body():
 
     _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "80% of new price", "60% of new price"]
     replace_cell_cond = [
-        {"if": {"column_id": "Status"}, "minWidth": 130, "width": 130, "maxWidth": 150, "fontWeight": 600},
-        {"if": {"column_id": "Equipment"}, "minWidth": 180, "maxWidth": 280},
-        {"if": {"column_id": "ID"}, "minWidth": 130, "maxWidth": 170, "color": C.COLOR_TEXT_SECONDARY},
+        {"if": {"column_id": "Status"}, "minWidth": 136, "width": 136, "maxWidth": 156, "fontWeight": 600},
+        {"if": {"column_id": "Equipment"}, "minWidth": 200, "maxWidth": 300},
+        {"if": {"column_id": "ID"}, "minWidth": 128, "maxWidth": 180},
         {
             "if": {"column_id": "Price basis"},
-            "minWidth": 108,
+            "minWidth": 118,
+            "width": 118,
             "maxWidth": 130,
             "textAlign": "center",
-            "fontSize": 12,
-            "padding": "8px 10px",
+            "padding": "8px 4px",
+            "backgroundColor": "transparent",
+            "border": "none",
         },
     ] + [
-        {"if": {"column_id": c}, "textAlign": "right", "minWidth": 110, "maxWidth": 140}
+        {"if": {"column_id": c}, "textAlign": "right", "minWidth": 112, "maxWidth": 148, "fontWeight": 500}
         for c in _money_cols
     ]
     replace_header_cond = [
@@ -368,6 +371,7 @@ def replacement_page_body():
                         style_cell_conditional=replace_cell_cond,
                         style_header_conditional=replace_header_cond,
                         style_data_conditional=[],
+                        markdown_options={"html": True},
                         tooltip_header={"Price basis": PRICE_BASIS_TOOLTIP},
                         page_size=C.DEFAULT_PAGE_SIZE,
                         page_action="native",

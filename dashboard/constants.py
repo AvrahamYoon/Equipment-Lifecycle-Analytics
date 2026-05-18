@@ -114,16 +114,16 @@ C_YELLOW = "#f59e0b"
 C_PINK = "#ec4899"
 
 CHART_FONT = dict(
-    family="'DM Sans','Segoe UI',sans-serif",
+    family="'Nunito','Segoe UI',system-ui,sans-serif",
     color=COLOR_TEXT_SECONDARY,
     size=12,
 )
 
 CARD_STYLE = {
     "background": "linear-gradient(165deg, #ffffff 0%, #fafbfd 100%)",
-    "border": "1px solid rgba(226, 232, 240, 0.95)",
+    "border": "none",
     "borderRadius": 16,
-    "boxShadow": "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px -12px rgba(15, 23, 42, 0.1)",
+    "boxShadow": "0 4px 24px -8px rgba(15, 23, 42, 0.08)",
 }
 
 
