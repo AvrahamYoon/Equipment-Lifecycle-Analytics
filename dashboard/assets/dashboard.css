@@ -1,6 +1,6 @@
 /* Equipment Lifecycle Analytics — global UI */
 
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap");
 
 :root {
   --fm-bg: #eef2f7;
@@ -16,14 +16,18 @@
   --fm-radius-lg: 18px;
   --fm-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
   --fm-shadow-md: 0 8px 28px -10px rgba(15, 23, 42, 0.14);
-  --fm-font: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --fm-font: "Nunito", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --fm-font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
 }
 
 /* --- App shell ----------------------------------------------------------- */
 .app-shell {
   font-family: var(--fm-font);
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--fm-text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app-sidebar {
@@ -67,13 +71,10 @@
 
 .app-header-brand h1 {
   margin: 6px 0 4px !important;
-  font-size: 26px !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.03em !important;
-  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-size: 25px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  color: #0f172a !important;
 }
 
 .app-header-brand .app-subtitle {
@@ -103,19 +104,20 @@
 /* --- Page hero (Replacement / Orders) ------------------------------------ */
 .page-hero {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  border: none;
   border-radius: var(--fm-radius-lg);
   padding: 22px 24px;
   margin-bottom: 18px;
-  box-shadow: var(--fm-shadow-sm), var(--fm-shadow-md);
+  box-shadow: 0 6px 28px -12px rgba(15, 23, 42, 0.1);
 }
 
 .page-hero h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--fm-text);
+  line-height: 1.25;
 }
 
 .page-hero .page-hero-desc {
@@ -195,20 +197,20 @@
 
 /* --- Filter toolbar ------------------------------------------------------ */
 .fm-toolbar {
-  background: rgba(255, 255, 255, 0.75) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+  border: none !important;
   border-radius: var(--fm-radius-md) !important;
   padding: 18px 20px !important;
   margin-bottom: 18px !important;
-  box-shadow: var(--fm-shadow-sm) !important;
+  box-shadow: 0 4px 20px -10px rgba(15, 23, 42, 0.08) !important;
 }
 
 .filter-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--fm-text-muted);
-  letter-spacing: 0.1em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fm-text-secondary);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   margin-bottom: 7px;
   display: block;
@@ -256,10 +258,10 @@
 }
 
 .kpi-card .kpi-value {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--fm-text);
 }
 
@@ -275,10 +277,10 @@
 /* --- Table card ---------------------------------------------------------- */
 .table-card {
   background: var(--fm-surface);
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  border: none;
   border-radius: var(--fm-radius-lg);
   overflow: hidden;
-  box-shadow: var(--fm-shadow-sm), var(--fm-shadow-md);
+  box-shadow: 0 8px 30px -14px rgba(15, 23, 42, 0.12);
 }
 
 .table-card .dash-spreadsheet-container {
@@ -322,10 +324,128 @@
   box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.35) !important;
 }
 
-/* Price basis / status pill cells */
-.dash-spreadsheet-inner td[data-dash-column="Price basis"],
-.dash-spreadsheet-inner td[data-dash-column="Status"] {
+/* --- Replacement table ----------------------------------------------------- */
+#page-replacement .table-card {
+  box-shadow: 0 12px 36px -18px rgba(15, 23, 42, 0.1);
+  border: none !important;
+}
+
+/* Price basis pills (markdown HTML inside replacement table) */
+.basis-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 5.5em;
+  padding: 6px 15px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  border: none;
+  letter-spacing: 0.02em;
+}
+
+.basis-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.basis-pill--accurate {
+  color: #047857;
+  background: rgba(209, 250, 229, 0.85);
+  box-shadow: 0 2px 8px -2px rgba(16, 185, 129, 0.35);
+}
+
+.basis-pill--accurate::before {
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.28);
+}
+
+.basis-pill--estimated {
+  color: #c2410c;
+  background: rgba(255, 237, 213, 0.9);
+  box-shadow: 0 2px 8px -2px rgba(249, 115, 22, 0.28);
+}
+
+.basis-pill--estimated::before {
+  background: #fb923c;
+  box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.28);
+}
+
+.basis-pill--unknown {
+  color: #94a3b8;
+  background: rgba(241, 245, 249, 0.9);
+  padding-left: 12px;
+  padding-right: 12px;
+  min-width: auto;
+}
+
+.basis-pill--unknown::before {
+  display: none;
+}
+
+#replace-table .dash-spreadsheet-inner td {
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+  color: #1e293b !important;
+}
+
+#replace-table .dash-spreadsheet-inner thead th {
+  font-size: 11px !important;
+  letter-spacing: 0.03em !important;
+  color: #64748b !important;
+  background: #f8fafc !important;
+}
+
+#replace-table .dash-spreadsheet-inner tbody tr:nth-child(odd) td {
+  background-color: #fafbfd !important;
+}
+
+#replace-table .dash-spreadsheet-inner tbody tr:hover td {
+  background-color: #f0f7ff !important;
+}
+
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Equipment"] {
+  font-weight: 500;
+  color: #0f172a !important;
+}
+
+#replace-table .dash-spreadsheet-inner td[data-dash-column="ID"] {
+  font-family: var(--fm-font-mono);
+  font-size: 13px !important;
+  letter-spacing: 0.02em;
+  color: #475569 !important;
+}
+
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Status"] {
+  font-weight: 600;
+}
+
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] {
+  background: transparent !important;
+  border-bottom-color: rgba(226, 232, 240, 0.5) !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding: 11px 6px !important;
+}
+
+#replace-table .dash-spreadsheet-inner tbody tr:nth-child(odd) td[data-dash-column="Price basis"],
+#replace-table .dash-spreadsheet-inner tbody tr:hover td[data-dash-column="Price basis"] {
+  background: transparent !important;
+}
+
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] .basis-pill {
+  margin: 0 auto;
+}
+
+/* Price basis / status pill cells (all tables) */
+.dash-spreadsheet-inner td[data-dash-column="Status"] {
+  font-weight: 600;
 }
 
 .table-info-bar {
