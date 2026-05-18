@@ -330,19 +330,29 @@ def replacement_page_body():
     )
 
     _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "80% of new price", "60% of new price"]
+    _pill_col = {
+        "textAlign": "center",
+        "padding": "10px 8px",
+        "border": "none",
+        "backgroundColor": "transparent",
+        "verticalAlign": "middle",
+    }
     replace_cell_cond = [
-        {"if": {"column_id": "Status"}, "minWidth": 136, "width": 136, "maxWidth": 156, "fontWeight": 600},
+        {
+            "if": {"column_id": "Status"},
+            "minWidth": 120,
+            "width": 120,
+            "maxWidth": 132,
+            **_pill_col,
+        },
         {"if": {"column_id": "Equipment"}, "minWidth": 200, "maxWidth": 300},
         {"if": {"column_id": "ID"}, "minWidth": 128, "maxWidth": 180},
         {
             "if": {"column_id": "Price basis"},
             "minWidth": 118,
             "width": 118,
-            "maxWidth": 130,
-            "textAlign": "center",
-            "padding": "8px 4px",
-            "backgroundColor": "transparent",
-            "border": "none",
+            "maxWidth": 132,
+            **_pill_col,
         },
     ] + [
         {"if": {"column_id": c}, "textAlign": "right", "minWidth": 112, "maxWidth": 148, "fontWeight": 500}

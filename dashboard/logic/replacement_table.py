@@ -9,19 +9,27 @@ import pandas as pd
 from dashboard import constants as C
 from dashboard.equipment_pricing import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
 
-_BASIS_PILL_HTML = {
-    "Accurate": '<span class="basis-pill basis-pill--accurate">Accurate</span>',
-    "Estimated": '<span class="basis-pill basis-pill--estimated">Estimated</span>',
-    "—": '<span class="basis-pill basis-pill--unknown">—</span>',
+_MARKDOWN_COLS = frozenset({"Status", PRICE_BASIS_COLUMN})
+
+_STATUS_PILL_HTML = {
+    "Replace": '<span class="fm-pill fm-pill--replace">Replace</span>',
+    "Monitor": '<span class="fm-pill fm-pill--monitor">Monitor</span>',
+    "Good": '<span class="fm-pill fm-pill--good">Good</span>',
 }
-from dashboard.logic.overview.settings_merge import merge_app_settings, replace_status_icons
+
+_BASIS_PILL_HTML = {
+    "Accurate": '<span class="fm-pill fm-pill--accurate">Accurate</span>',
+    "Estimated": '<span class="fm-pill fm-pill--estimated">Estimated</span>',
+    "—": '<span class="fm-pill fm-pill--unknown">—</span>',
+}
+
+from dashboard.logic.overview.settings_merge import merge_app_settings
 from dashboard.taxonomy import ensure_equip_id_norm_column, filter_equip_id_substr
 
 
 def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     """Returns (columns, records, style_data_conditional) for Dash DataTable."""
-    merged = merge_app_settings(app_settings)
-    ico = replace_status_icons(merged)
+    merge_app_settings(app_settings)
     filters = filters or {}
 
     rep = ensure_equip_id_norm_column(rep, raw_col="equipId", norm_col="equipIdNorm")
@@ -106,50 +114,17 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     columns = []
     for c in table_data.columns:
         col = {"name": c, "id": c}
-        if c == PRICE_BASIS_COLUMN:
+        if c in _MARKDOWN_COLS:
             col["presentation"] = "markdown"
         columns.append(col)
 
-    status_styles = {
-        "Replace": {
-            "bg": "#fef2f2",
-            "color": "#dc2626",
-            "badge": f'{ico["Replace"]} Replace',
-        },
-        "Monitor": {
-            "bg": "#fffbeb",
-            "color": "#d97706",
-            "badge": f'{ico["Monitor"]} Monitor',
-        },
-        "Good": {
-            "bg": "#f0fdf4",
-            "color": "#059669",
-            "badge": f'{ico["Good"]} Good',
-        },
-    }
-
     for r in records:
         s = r.get("Status", "Good")
-        r["Status"] = status_styles.get(s, status_styles["Good"])["badge"]
+        r["Status"] = _STATUS_PILL_HTML.get(s, _STATUS_PILL_HTML["Good"])
         pb = r.get(PRICE_BASIS_COLUMN, "—")
         r[PRICE_BASIS_COLUMN] = _BASIS_PILL_HTML.get(pb, _BASIS_PILL_HTML["—"])
 
     cond_style = []
-    for status, style in status_styles.items():
-        badge = style["badge"]
-        cond_style.append(
-            {
-                "if": {"filter_query": f'{{Status}} = "{badge}"'},
-                "backgroundColor": style["bg"],
-            }
-        )
-        cond_style.append(
-            {
-                "if": {"filter_query": f'{{Status}} = "{badge}"', "column_id": "Status"},
-                "color": style["color"],
-                "fontWeight": "700",
-            }
-        )
     cond_style.append(
         {
             "if": {"column_id": "New Price"},

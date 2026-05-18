@@ -330,14 +330,14 @@
   border: none !important;
 }
 
-/* Price basis pills (markdown HTML inside replacement table) */
-.basis-pill {
+/* Replacement table: shared capsule pills (Status + Price basis) */
+.fm-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-width: 5.5em;
-  padding: 6px 15px;
+  min-width: 5.25em;
+  padding: 6px 14px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
@@ -345,9 +345,10 @@
   white-space: nowrap;
   border: none;
   letter-spacing: 0.02em;
+  box-sizing: border-box;
 }
 
-.basis-pill::before {
+.fm-pill::before {
   content: "";
   width: 8px;
   height: 8px;
@@ -355,37 +356,65 @@
   flex-shrink: 0;
 }
 
-.basis-pill--accurate {
+.fm-pill--good {
   color: #047857;
-  background: rgba(209, 250, 229, 0.85);
-  box-shadow: 0 2px 8px -2px rgba(16, 185, 129, 0.35);
+  background: #ecfdf5;
 }
 
-.basis-pill--accurate::before {
+.fm-pill--good::before {
   background: #34d399;
   box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.28);
 }
 
-.basis-pill--estimated {
-  color: #c2410c;
-  background: rgba(255, 237, 213, 0.9);
-  box-shadow: 0 2px 8px -2px rgba(249, 115, 22, 0.28);
+.fm-pill--monitor {
+  color: #b45309;
+  background: #fffbeb;
 }
 
-.basis-pill--estimated::before {
+.fm-pill--monitor::before {
+  background: #fbbf24;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.28);
+}
+
+.fm-pill--replace {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.fm-pill--replace::before {
+  background: #f87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.28);
+}
+
+.fm-pill--accurate {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.fm-pill--accurate::before {
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.28);
+}
+
+.fm-pill--estimated {
+  color: #c2410c;
+  background: #fff7ed;
+}
+
+.fm-pill--estimated::before {
   background: #fb923c;
   box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.28);
 }
 
-.basis-pill--unknown {
+.fm-pill--unknown {
   color: #94a3b8;
-  background: rgba(241, 245, 249, 0.9);
+  background: #f1f5f9;
+  min-width: auto;
   padding-left: 12px;
   padding-right: 12px;
-  min-width: auto;
 }
 
-.basis-pill--unknown::before {
+.fm-pill--unknown::before {
   display: none;
 }
 
@@ -422,30 +451,45 @@
   color: #475569 !important;
 }
 
-#replace-table .dash-spreadsheet-inner td[data-dash-column="Status"] {
-  font-weight: 600;
-}
-
+/* Status + Price basis: same layout — row stripe behind, capsule centered in cell */
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Status"],
 #replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] {
-  background: transparent !important;
-  border-bottom-color: rgba(226, 232, 240, 0.5) !important;
   text-align: center !important;
   vertical-align: middle !important;
-  padding: 11px 6px !important;
+  padding: 11px 8px !important;
+  background-color: inherit !important;
 }
 
-#replace-table .dash-spreadsheet-inner tbody tr:nth-child(odd) td[data-dash-column="Price basis"],
-#replace-table .dash-spreadsheet-inner tbody tr:hover td[data-dash-column="Price basis"] {
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Status"] .dash-cell-value,
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] .dash-cell-value {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 100%;
+  width: 100%;
+  background-color: transparent !important;
+  box-sizing: border-box;
+}
+
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Status"] .dash-cell-value *,
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] .dash-cell-value * {
+  background-color: transparent !important;
+}
+
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Status"] p,
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] p {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100%;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
   background: transparent !important;
 }
 
-#replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] .basis-pill {
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Status"] .fm-pill,
+#replace-table .dash-spreadsheet-inner td[data-dash-column="Price basis"] .fm-pill {
   margin: 0 auto;
-}
-
-/* Price basis / status pill cells (all tables) */
-.dash-spreadsheet-inner td[data-dash-column="Status"] {
-  font-weight: 600;
 }
 
 .table-info-bar {
