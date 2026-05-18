@@ -7,6 +7,11 @@ import duckdb
 import pandas as pd
 
 from dashboard import constants as C
+from dashboard.equipment_pricing import (
+    apply_new_prices_to_repairs,
+    build_service_price_map,
+    load_purchase_price_map,
+)
 from dashboard.taxonomy import equipment_chart_class, equipment_row_category, norm_equip_id
 
 _SQL_DIR = os.path.join(os.path.dirname(__file__), "sql")
@@ -211,21 +216,6 @@ def load_repairs(path: str) -> pd.DataFrame:
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["month_key"] = df["date"].dt.to_period("M").astype(str)
 
-    price_map = {
-        "versamatic": 1035,
-        "lindhaus": 850,
-        "kaivac": 5700,
-        "big vacuum": 1050,
-    }
-
-    def get_price(name):
-        n = str(name).lower()
-        for k, v in price_map.items():
-            if k in n:
-                return v
-        return 1035
-
-    df["newPrice"] = df["equipment"].apply(get_price)
     df = _drop_duplicate_columns(df)
     return df
 
@@ -292,6 +282,9 @@ try:
     df_service = _load_service_merged()
     df_repairs = _load_repairs_merged()
     df_equip = load_equipment_summary()
+    _purchase_prices = load_purchase_price_map(C.PURCHASE_CSV)
+    _service_prices = build_service_price_map(df_service)
+    df_repairs = apply_new_prices_to_repairs(df_repairs, _purchase_prices, _service_prices)
 except FileNotFoundError as e:
     raise SystemExit(
         f"{e}\n"

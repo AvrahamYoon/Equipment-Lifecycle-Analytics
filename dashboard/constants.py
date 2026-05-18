@@ -6,6 +6,7 @@ REQUESTS_DIR = os.path.join("data", "requests")
 SERVICE_DIR = os.path.join("data", "service")
 REPAIRS_DIR = os.path.join("data", "repairs")
 EQUIPMENT_SUMMARY_CSV = os.path.join("data", "equipment", "cleaned", "all_equipment_summary.csv")
+PURCHASE_CSV = os.path.join("data", "equipment", "purchase", "purchase.csv")
 
 BASE_AVAIL_DAYS = 311
 
