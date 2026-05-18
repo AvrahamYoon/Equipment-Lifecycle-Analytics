@@ -98,12 +98,12 @@ CHART_CLASS_ORDER = [
 ]
 CHART_CLASS_RANK = {c: i for i, c in enumerate(CHART_CLASS_ORDER)}
 
-BG_PAGE = "#f0f4f8"
+BG_PAGE = "#eef2f7"
 BG_CARD = "#ffffff"
-BG_HEADER = "#ffffff"
+BG_HEADER = "rgba(255, 255, 255, 0.88)"
 COLOR_BORDER = "#e2e8f0"
-COLOR_TEXT_PRIMARY = "#1e293b"
-COLOR_TEXT_SECONDARY = "#64748b"
+COLOR_TEXT_PRIMARY = "#0f172a"
+COLOR_TEXT_SECONDARY = "#475569"
 COLOR_TEXT_MUTED = "#94a3b8"
 
 C_BLUE = "#3b82f6"
@@ -120,10 +120,10 @@ CHART_FONT = dict(
 )
 
 CARD_STYLE = {
-    "background": BG_CARD,
-    "border": f"1px solid {COLOR_BORDER}",
-    "borderRadius": 14,
-    "boxShadow": "0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
+    "background": "linear-gradient(165deg, #ffffff 0%, #fafbfd 100%)",
+    "border": "1px solid rgba(226, 232, 240, 0.95)",
+    "borderRadius": 16,
+    "boxShadow": "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px -12px rgba(15, 23, 42, 0.1)",
 }
 
 

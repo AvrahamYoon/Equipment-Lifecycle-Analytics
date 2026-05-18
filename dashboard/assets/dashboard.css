@@ -1,45 +1,333 @@
-/* Dash DataTable polish for the Replacement and Order Roster pages.
-   Targets generic structural classes so it doesn't depend on a specific
-   Dash version's internal naming. */
+/* Equipment Lifecycle Analytics — global UI */
 
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap");
+
+:root {
+  --fm-bg: #eef2f7;
+  --fm-surface: #ffffff;
+  --fm-border: #e2e8f0;
+  --fm-text: #0f172a;
+  --fm-text-secondary: #475569;
+  --fm-text-muted: #94a3b8;
+  --fm-accent: #3b82f6;
+  --fm-accent-soft: #eff6ff;
+  --fm-radius-sm: 10px;
+  --fm-radius-md: 14px;
+  --fm-radius-lg: 18px;
+  --fm-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --fm-shadow-md: 0 8px 28px -10px rgba(15, 23, 42, 0.14);
+  --fm-font: "DM Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+/* --- App shell ----------------------------------------------------------- */
+.app-shell {
+  font-family: var(--fm-font);
+  color: var(--fm-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-sidebar {
+  background: linear-gradient(185deg, #ffffff 0%, #f6f8fc 48%, #f1f5f9 100%) !important;
+  border-right: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 4px 0 24px -12px rgba(15, 23, 42, 0.08) !important;
+}
+
+.app-sidebar .sidebar-brand {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fm-accent);
+  margin-bottom: 18px;
+  padding-left: 6px;
+}
+
+#nav-wrap-overview,
+#nav-wrap-replacement,
+#nav-wrap-orders,
+#nav-wrap-settings {
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+#nav-wrap-overview:hover,
+#nav-wrap-replacement:hover,
+#nav-wrap-orders:hover,
+#nav-wrap-settings:hover {
+  background: rgba(59, 130, 246, 0.07) !important;
+  transform: translateX(3px);
+}
+
+.app-header-brand .app-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--fm-accent);
+}
+
+.app-header-brand h1 {
+  margin: 6px 0 4px !important;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.app-header-brand .app-subtitle {
+  font-size: 13px;
+  color: var(--fm-text-secondary);
+}
+
+#main-scroll {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(59, 130, 246, 0.07), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 95% 0%, rgba(139, 92, 246, 0.05), transparent 50%),
+    var(--fm-bg);
+}
+
+/* --- Header -------------------------------------------------------------- */
+.fm-header {
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, var(--fm-shadow-sm) !important;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* --- Page hero (Replacement / Orders) ------------------------------------ */
+.page-hero {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: var(--fm-radius-lg);
+  padding: 22px 24px;
+  margin-bottom: 18px;
+  box-shadow: var(--fm-shadow-sm), var(--fm-shadow-md);
+}
+
+.page-hero h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--fm-text);
+}
+
+.page-hero .page-hero-desc {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--fm-text-secondary);
+  line-height: 1.55;
+  max-width: 780px;
+}
+
+.page-hero .page-hero-desc code {
+  font-size: 12px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  border: 1px solid var(--fm-border);
+  color: #334155;
+}
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.legend-chip--replace {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.legend-chip--monitor {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.legend-chip--good {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.legend-chip--info {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.legend-chip--success {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.legend-hint {
+  font-size: 12px;
+  color: var(--fm-text-muted);
+  margin-right: 6px;
+}
+
+/* --- Filter toolbar ------------------------------------------------------ */
+.fm-toolbar {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+  border-radius: var(--fm-radius-md) !important;
+  padding: 18px 20px !important;
+  margin-bottom: 18px !important;
+  box-shadow: var(--fm-shadow-sm) !important;
+}
+
+.filter-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--fm-text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+  display: block;
+}
+
+.filter-input {
+  width: 100%;
+  max-width: 280px;
+  padding: 10px 14px;
+  border-radius: var(--fm-radius-sm);
+  border: 1px solid var(--fm-border);
+  font-size: 13px;
+  font-family: inherit;
+  box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.filter-input:hover {
+  border-color: #cbd5e1;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+
+/* --- KPI cards ----------------------------------------------------------- */
+.kpi-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.kpi-card .kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--fm-text);
+}
+
+.kpi-card .kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--fm-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 8px;
+}
+
+/* --- Table card ---------------------------------------------------------- */
+.table-card {
+  background: var(--fm-surface);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: var(--fm-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--fm-shadow-sm), var(--fm-shadow-md);
+}
+
+.table-card .dash-spreadsheet-container {
+  border: none !important;
+}
+
+/* --- DataTable ----------------------------------------------------------- */
 .dash-spreadsheet-inner tbody tr td {
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .dash-spreadsheet-inner tbody tr:hover td {
-  background-color: #eef4fb !important;
+  background-color: #f0f7ff !important;
 }
 
-/* Sticky header — works together with fixed_rows={"headers": True}. */
 .dash-spreadsheet-inner thead th {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
   box-shadow: inset 0 -1px 0 #e2e8f0;
+  font-weight: 700 !important;
 }
 
-/* Subtle sort-arrow polish. */
 .dash-spreadsheet-inner .column-header--sort {
   margin-left: 6px;
   opacity: 0.45;
   transition: opacity 0.12s ease;
 }
+
 .dash-spreadsheet-inner th:hover .column-header--sort,
 .dash-spreadsheet-inner .column-header.dash-header--sort-active .column-header--sort {
   opacity: 1;
 }
 
-/* Tabular numerals — keeps cost/day columns aligned even at different widths. */
 .dash-spreadsheet-inner td,
 .dash-spreadsheet-inner th {
   font-variant-numeric: tabular-nums;
 }
 
-/* Soften the focus rectangle that Dash draws on the focused cell. */
 .dash-spreadsheet-inner td.focused,
 .dash-spreadsheet-inner td.cell--selected {
   outline: none !important;
-  box-shadow: inset 0 0 0 1px #bfdbfe !important;
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.35) !important;
 }
 
-/* Page-size selector + row-count caption sitting above each table. */
+/* Price basis / status pill cells */
+.dash-spreadsheet-inner td[data-dash-column="Price basis"],
+.dash-spreadsheet-inner td[data-dash-column="Status"] {
+  font-weight: 700;
+}
+
 .table-info-bar {
   display: flex;
   align-items: center;
@@ -48,35 +336,35 @@
   flex-wrap: wrap;
   margin: 4px 2px 14px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--fm-text-secondary);
 }
 
-/* "Showing 23 of 59 equipment items" — rendered as a soft pill with a
-   leading status dot so it reads as a piece of UI, not body copy. */
 .table-info-bar .row-count {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px 6px 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  padding: 7px 16px 7px 13px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border: 1px solid var(--fm-border);
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 500;
-  color: #475569;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  font-weight: 600;
+  color: var(--fm-text-secondary);
+  box-shadow: var(--fm-shadow-sm);
 }
+
 .table-info-bar .row-count::before {
   content: "";
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
   flex-shrink: 0;
 }
+
 .table-info-bar .row-count strong {
-  color: #1e293b;
-  font-weight: 700;
+  color: var(--fm-text);
+  font-weight: 800;
 }
 
 .table-info-bar .page-size-wrap {
@@ -90,16 +378,14 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: #94a3b8;
+  color: var(--fm-text-muted);
 }
 
-/* Segmented "10 | 20 | 50 | 100 | All" control. The actual radio circle
-   is visually hidden but stays focusable for accessibility. */
 .page-size-radio {
   display: inline-flex;
   align-items: stretch;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: #e8edf4;
+  border: 1px solid var(--fm-border);
   border-radius: 999px;
   padding: 3px;
   gap: 2px;
@@ -110,20 +396,20 @@
   align-items: center;
   justify-content: center;
   min-width: 36px;
-  padding: 4px 12px;
+  padding: 5px 12px;
   border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--fm-text-secondary);
   margin: 0 !important;
   user-select: none;
   transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .page-size-radio-label:hover {
-  color: #1e293b;
-  background-color: rgba(255, 255, 255, 0.65);
+  color: var(--fm-text);
+  background-color: rgba(255, 255, 255, 0.7);
 }
 
 .page-size-radio-input {
@@ -138,12 +424,10 @@
   border: 0;
 }
 
-/* Active "pill" — :has() is supported in all evergreen browsers and
-   keeps the markup minimal (no callback needed to toggle a class). */
 .page-size-radio-label:has(.page-size-radio-input:checked) {
   background: #ffffff;
-  color: #1e293b;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.06);
+  color: var(--fm-text);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
 }
 
 .page-size-radio-label:focus-within {
@@ -151,113 +435,96 @@
   outline-offset: 1px;
 }
 
-/* =========================================================================
-   Reusable polish components
-   ========================================================================= */
-
-/* --- 1. Card / surface hover lift ----------------------------------------
-   Add ``className="lift-on-hover"`` next to an existing CARD_STYLE Div to
-   get a subtle elevation + 1px translateY on hover. Pairs cleanly with the
-   inline CARD_STYLE (no overrides needed at rest). */
+/* --- Shared components --------------------------------------------------- */
 .lift-on-hover {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  transition: transform 0.22s cubic-bezier(0.34, 1.2, 0.64, 1), box-shadow 0.22s ease;
   will-change: transform;
 }
+
 .lift-on-hover:hover {
-  transform: translateY(-4px) scale(1.005);
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.1) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px -12px rgba(15, 23, 42, 0.14) !important;
 }
 
-/* --- 6. Custom Scrollbar --------------------------------------------------
-   Thin, modern scrollbar that blends into the interface. */
 #main-scroll::-webkit-scrollbar {
   width: 8px;
 }
+
 #main-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
 #main-scroll::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 10px;
-  border: 2px solid #f0f4f8; /* Padding around thumb */
+  border: 2px solid var(--fm-bg);
 }
+
 #main-scroll::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-
-/* --- 2. Toolbar inputs & dcc.Dropdown polish ----------------------------- */
-.fm-header {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(255, 255, 255, 0.8) !important;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-/* Sidebar Glassmorphism & Nav Transitions */
-#nav-wrap-overview, #nav-wrap-replacement, #nav-wrap-orders, #nav-wrap-settings {
-  transition: all 0.2s ease-in-out !important;
-}
-
-#nav-wrap-overview:hover, #nav-wrap-replacement:hover, #nav-wrap-orders:hover, #nav-wrap-settings:hover {
-  background: rgba(59, 130, 246, 0.08) !important;
-  transform: translateX(4px);
-}
-
 .fm-toolbar input,
-.fm-toolbar textarea {
+.fm-toolbar textarea,
+.fm-header input,
+.fm-header textarea {
   transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
 }
+
 .fm-toolbar input::placeholder,
 .fm-header input::placeholder {
-  color: #94a3b8;
+  color: var(--fm-text-muted);
 }
+
 .fm-toolbar input:focus,
 .fm-toolbar input:focus-visible,
-.fm-toolbar textarea:focus {
+.fm-toolbar textarea:focus,
+.fm-header input:focus {
   outline: none !important;
   border-color: #93c5fd !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16) !important;
   background-color: #ffffff !important;
 }
 
-/* react-select v1.x classes used by ``dcc.Dropdown``. */
 .fm-toolbar .Select-control,
 .fm-header .Select-control {
-  border-radius: 10px !important;
-  border-color: #e2e8f0 !important;
+  border-radius: var(--fm-radius-sm) !important;
+  border-color: var(--fm-border) !important;
   background-color: #ffffff !important;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
-  min-height: 38px;
+  min-height: 40px;
 }
+
 .fm-toolbar .Select.is-focused:not(.is-open) > .Select-control,
 .fm-toolbar .Select.is-open > .Select-control,
 .fm-header .Select.is-focused:not(.is-open) > .Select-control,
 .fm-header .Select.is-open > .Select-control {
   border-color: #93c5fd !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16) !important;
 }
+
 .fm-toolbar .Select-menu-outer,
 .fm-header .Select-menu-outer {
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 10px !important;
-  margin-top: 4px;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.05) !important;
+  border: 1px solid var(--fm-border) !important;
+  border-radius: var(--fm-radius-sm) !important;
+  margin-top: 6px;
+  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.18) !important;
   overflow: hidden;
 }
+
 .fm-toolbar .Select-option,
 .fm-header .Select-option {
   font-size: 13px;
-  padding: 8px 12px;
+  padding: 9px 14px;
   transition: background-color 0.1s ease, color 0.1s ease;
 }
+
 .fm-toolbar .Select-option.is-focused,
 .fm-header .Select-option.is-focused {
   background-color: #f1f5f9 !important;
-  color: #1e293b !important;
+  color: var(--fm-text) !important;
 }
+
 .fm-toolbar .Select-option.is-selected,
 .fm-header .Select-option.is-selected {
   background-color: #e0f2fe !important;
@@ -265,43 +532,39 @@
   font-weight: 600;
 }
 
-/* --- 3. Empty-state panel ------------------------------------------------
-   Drop in below a DataTable; toggle ``style.display`` via a callback
-   ("none" when there are rows, "flex" when filtered down to zero). */
 .empty-state {
   display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 36px 24px;
+  gap: 10px;
+  padding: 48px 24px;
   text-align: center;
-  color: #64748b;
+  color: var(--fm-text-secondary);
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border-top: 1px dashed #e2e8f0;
-}
-.empty-state .empty-state-icon {
-  font-size: 28px;
-  line-height: 1;
-  opacity: 0.7;
-}
-.empty-state .empty-state-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1e293b;
-}
-.empty-state .empty-state-hint {
-  font-size: 12px;
-  color: #94a3b8;
-  max-width: 380px;
-  line-height: 1.5;
+  border-top: 1px dashed var(--fm-border);
 }
 
-/* --- 4. Section eyebrow --------------------------------------------------
-   Tiny uppercase header label with an optional colored dot. Replaces ad-hoc
-   inline styles for things like "WORKSPACE" / "PREFERENCES" on the sidebar
-   or section titles in cards. Use ``.section-eyebrow--blue`` / ``--purple``
-   / ``--green`` / ``--orange`` to tint the dot. */
+.empty-state .empty-state-icon {
+  font-size: 32px;
+  line-height: 1;
+  opacity: 0.65;
+}
+
+.empty-state .empty-state-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fm-text);
+}
+
+.empty-state .empty-state-hint {
+  font-size: 13px;
+  color: var(--fm-text-muted);
+  max-width: 400px;
+  line-height: 1.55;
+}
+
 .section-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -310,8 +573,9 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--fm-text-muted);
 }
+
 .section-eyebrow::before {
   content: "";
   width: 6px;
@@ -320,15 +584,13 @@
   background: currentColor;
   opacity: 0.55;
 }
+
 .section-eyebrow--blue   { color: #3b82f6; }
 .section-eyebrow--purple { color: #8b5cf6; }
 .section-eyebrow--green  { color: #10b981; }
 .section-eyebrow--orange { color: #f97316; }
 .section-eyebrow--muted  { color: #94a3b8; }
 
-/* --- 5. Tag pills --------------------------------------------------------
-   Compact status / category chip. Drop ``.tag-pill .tag-pill--green`` for
-   a green "Good" badge, etc. Same shape as the row-count pill but smaller. */
 .tag-pill {
   display: inline-flex;
   align-items: center;
@@ -342,6 +604,7 @@
   border: 1px solid transparent;
   white-space: nowrap;
 }
+
 .tag-pill::before {
   content: "";
   width: 6px;
@@ -349,6 +612,7 @@
   border-radius: 50%;
   background: currentColor;
 }
+
 .tag-pill--red    { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
 .tag-pill--yellow { color: #b45309; background: #fffbeb; border-color: #fde68a; }
 .tag-pill--green  { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
@@ -356,14 +620,49 @@
 .tag-pill--purple { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
 .tag-pill--slate  { color: #475569; background: #f1f5f9; border-color: #e2e8f0; }
 
-/* Reduce dash-table's built-in pagination crowding. */
-.dash-spreadsheet-container .previous-next-container {
-  padding: 8px 0;
-  font-size: 12px;
-  color: #475569;
+.btn-primary {
+  padding: 10px 22px;
+  border-radius: var(--fm-radius-sm);
+  border: none;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -4px rgba(37, 99, 235, 0.55);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -6px rgba(37, 99, 235, 0.6);
+}
+
+.btn-secondary {
+  padding: 10px 22px;
+  border-radius: var(--fm-radius-sm);
+  border: 1px solid var(--fm-border);
+  background: #fff;
+  color: var(--fm-text);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.dash-spreadsheet-container .previous-next-container {
+  padding: 10px 4px;
+  font-size: 12px;
+  color: var(--fm-text-secondary);
+}
+
 .dash-spreadsheet-container .current-page {
   border: 1px solid #cbd5e1 !important;
-  border-radius: 6px !important;
-  padding: 2px 6px !important;
+  border-radius: 8px !important;
+  padding: 3px 8px !important;
 }

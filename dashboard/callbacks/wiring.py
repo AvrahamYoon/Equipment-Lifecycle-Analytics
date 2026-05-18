@@ -64,14 +64,23 @@ def register_callbacks(app):
 
         def nav_item(active: bool):
             return {
-                "padding": "11px 16px",
-                "borderRadius": 10,
+                "padding": "12px 16px",
+                "borderRadius": 12,
                 "marginBottom": 6,
-                "background": "#e8f1fe" if active else "transparent",
+                "background": (
+                    "linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%)"
+                    if active
+                    else "transparent"
+                ),
                 "color": C.COLOR_TEXT_PRIMARY if active else C.COLOR_TEXT_SECONDARY,
                 "fontWeight": 700 if active else 500,
                 "fontSize": 14,
                 "border": f"1px solid {'#bfdbfe' if active else 'transparent'}",
+                "boxShadow": (
+                    "0 2px 8px -2px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255,255,255,0.8)"
+                    if active
+                    else "none"
+                ),
             }
 
         ov = not on_rep and not on_ord and not on_set

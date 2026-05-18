@@ -13,7 +13,7 @@ def overview_page_body():
         [
             html.Div(
                 id="kpi-row",
-                style={"display": "flex", "flexWrap": "wrap", "gap": 14, "marginBottom": 20},
+                style={"display": "flex", "flexWrap": "wrap", "gap": 16, "marginBottom": 22},
             ),
             html.Div(
                 [
@@ -120,7 +120,7 @@ def overview_page_body():
         id="page-overview",
         style={
             "display": "block",
-            "padding": "24px 28px",
+            "padding": "28px 36px 40px",
             "maxWidth": 1440,
             "margin": "0 auto",
             "minWidth": 0,
@@ -162,47 +162,28 @@ def _table_info_bar(row_count_id: str, page_size_id: str, item_label: str = "row
 def replacement_page_body():
     """Full-page replacement indicator (equipment-level roll-up)."""
     d = _DEFAULTS
-    flabel = {
-        "fontSize": 11,
-        "fontWeight": 600,
-        "color": C.COLOR_TEXT_MUTED,
-        "letterSpacing": "0.06em",
-        "textTransform": "uppercase",
-        "marginBottom": 6,
-        "display": "block",
-    }
-    finp = {
-        "width": "100%",
-        "maxWidth": 280,
-        "padding": "10px 12px",
-        "borderRadius": 10,
-        "border": f"1px solid {C.COLOR_BORDER}",
-        "fontSize": 13,
-        "fontFamily": "inherit",
-        "boxSizing": "border-box",
-        "background": "#fff",
-    }
+    flabel = {"className": "filter-label"}
     _hdr = {
-        "backgroundColor": "#f1f5f9",
-        "color": C.COLOR_TEXT_SECONDARY,
+        "backgroundColor": "transparent",
+        "color": C.COLOR_TEXT_MUTED,
         "fontWeight": "700",
-        "fontSize": 11,
+        "fontSize": 10,
         "textTransform": "uppercase",
-        "letterSpacing": "0.06em",
-        "borderBottom": f"2px solid {C.COLOR_BORDER}",
-        "padding": "12px 16px",
+        "letterSpacing": "0.1em",
+        "borderBottom": f"1px solid {C.COLOR_BORDER}",
+        "padding": "14px 16px",
         "border": "none",
     }
     _cell = {
         "backgroundColor": C.BG_CARD,
         "color": C.COLOR_TEXT_PRIMARY,
         "fontSize": 13,
-        "padding": "12px 16px",
+        "padding": "14px 16px",
         "border": "none",
-        "borderBottom": f"1px solid {C.COLOR_BORDER}",
-        "fontFamily": "'DM Sans','Segoe UI',sans-serif",
+        "borderBottom": f"1px solid rgba(226, 232, 240, 0.7)",
+        "fontFamily": "inherit",
     }
-    _tbl = {"overflowX": "auto", "borderRadius": 12, "overflow": "hidden", "border": f"1px solid {C.COLOR_BORDER}"}
+    _tbl = {"overflowX": "auto", "borderRadius": 0, "overflow": "hidden", "border": "none"}
 
     def filter_bar(children):
         return html.Div(
@@ -222,25 +203,11 @@ def replacement_page_body():
                     html.Span(
                         id="replace-page-title-icon",
                         children=d["iconReplaceTitle"],
-                        style={
-                            "fontSize": 22,
-                            "marginRight": 12,
-                            "lineHeight": 1,
-                            "filter": "drop-shadow(0 1px 1px rgba(0,0,0,0.06))",
-                        },
+                        style={"fontSize": 26, "marginRight": 14, "lineHeight": 1},
                     ),
                     html.Div(
                         [
-                            html.H2(
-                                "Equipment Replacement Indicator",
-                                style={
-                                    "margin": 0,
-                                    "fontSize": 22,
-                                    "fontWeight": 800,
-                                    "color": C.COLOR_TEXT_PRIMARY,
-                                    "letterSpacing": "-0.02em",
-                                },
-                            ),
+                            html.H2("Equipment Replacement Indicator"),
                             html.P(
                                 [
                                     "Per equipment: ",
@@ -251,13 +218,7 @@ def replacement_page_body():
                                     html.Strong("not"),
                                     " apply here). Compare to estimated new price: Replace ≥ 80%, Monitor 60–80%, Good < 60%.",
                                 ],
-                                style={
-                                    "margin": "6px 0 0",
-                                    "fontSize": 13,
-                                    "color": C.COLOR_TEXT_SECONDARY,
-                                    "lineHeight": 1.45,
-                                    "maxWidth": 780,
-                                },
+                                className="page-hero-desc",
                             ),
                         ]
                     ),
@@ -271,84 +232,48 @@ def replacement_page_body():
                             html.Span(
                                 id="replace-legend-ico-replace",
                                 children=d["iconReplaceStatusReplace"],
-                                style={"fontWeight": 700},
                             ),
-                            html.Span(" Replace", style={"color": "#b91c1c", "fontWeight": 700}),
+                            " Replace",
                         ],
-                        style={
-                            "marginRight": 14,
-                            "padding": "6px 12px",
-                            "borderRadius": 999,
-                            "background": "#fef2f2",
-                            "border": "1px solid #fecaca",
-                            "fontSize": 12,
-                        },
+                        className="legend-chip legend-chip--replace",
                     ),
                     html.Span(
                         "Labor + parts ≥ 80% of new-equipment price",
-                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginRight": 18},
+                        className="legend-hint",
                     ),
                     html.Span(
                         [
                             html.Span(
                                 id="replace-legend-ico-monitor",
                                 children=d["iconReplaceStatusMonitor"],
-                                style={"fontWeight": 700},
                             ),
-                            html.Span(" Monitor", style={"color": "#b45309", "fontWeight": 700}),
+                            " Monitor",
                         ],
-                        style={
-                            "marginRight": 14,
-                            "padding": "6px 12px",
-                            "borderRadius": 999,
-                            "background": "#fffbeb",
-                            "border": "1px solid #fde68a",
-                            "fontSize": 12,
-                        },
+                        className="legend-chip legend-chip--monitor",
                     ),
                     html.Span(
                         "≥ 60% and < 80% of new-equipment price",
-                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginRight": 18},
+                        className="legend-hint",
                     ),
                     html.Span(
                         [
                             html.Span(
                                 id="replace-legend-ico-good",
                                 children=d["iconReplaceStatusGood"],
-                                style={"fontWeight": 700},
                             ),
-                            html.Span(" Good", style={"color": "#047857", "fontWeight": 700}),
+                            " Good",
                         ],
-                        style={
-                            "marginRight": 14,
-                            "padding": "6px 12px",
-                            "borderRadius": 999,
-                            "background": "#ecfdf5",
-                            "border": "1px solid #a7f3d0",
-                            "fontSize": 12,
-                        },
+                        className="legend-chip legend-chip--good",
                     ),
                     html.Span(
                         "Below 60% of new-equipment price",
-                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12},
+                        className="legend-hint",
                     ),
                 ],
-                style={
-                    "display": "flex",
-                    "flexWrap": "wrap",
-                    "gap": 8,
-                    "alignItems": "center",
-                    "marginTop": 16,
-                },
+                className="legend-row",
             ),
         ],
-        style={
-            **C.CARD_STYLE,
-            "padding": "24px 26px 22px",
-            "marginBottom": 20,
-            "borderLeft": f"4px solid {C.C_BLUE}",
-            "boxShadow": "0 4px 24px rgba(15, 23, 42, 0.06)",
-        },
+        className="page-hero",
     )
 
     toolbar = html.Div(
@@ -356,7 +281,7 @@ def replacement_page_body():
             [
                 html.Div(
                     [
-                        html.Label("Status", style=flabel),
+                        html.Label("Status", **flabel),
                         dcc.Dropdown(
                             id="replace-filter-status",
                             options=[
@@ -374,26 +299,26 @@ def replacement_page_body():
                 ),
                 html.Div(
                     [
-                        html.Label("Equipment contains", style=flabel),
+                        html.Label("Equipment contains", **flabel),
                         dcc.Input(
                             id="replace-filter-equipment",
                             type="text",
                             placeholder="Substring in equipment name",
                             debounce=True,
-                            style=finp,
+                            className="filter-input",
                         ),
                     ],
                     style={"flex": "1", "minWidth": 200},
                 ),
                 html.Div(
                     [
-                        html.Label("Equipment ID contains", style=flabel),
+                        html.Label("Equipment ID contains", **flabel),
                         dcc.Input(
                             id="replace-filter-id",
                             type="text",
                             placeholder="Substring in ID",
                             debounce=True,
-                            style=finp,
+                            className="filter-input",
                         ),
                     ],
                     style={"flex": "1", "minWidth": 180},
@@ -401,13 +326,6 @@ def replacement_page_body():
             ]
         ),
         className="fm-toolbar",
-        style={
-            "background": "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
-            "border": f"1px solid {C.COLOR_BORDER}",
-            "borderRadius": 12,
-            "padding": "16px 18px",
-            "marginBottom": 18,
-        },
     )
 
     _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "80% of new price", "60% of new price"]
@@ -461,8 +379,8 @@ def replacement_page_body():
                             html.Div("🔍", className="empty-state-icon"),
                             html.Div("No matching equipment", className="empty-state-title"),
                             html.Div(
-                                "No items match the current month and filters. Try clearing the "
-                                "Status / Equipment / ID filters above, or switching the month.",
+                                "No items match the current filters. Try clearing Status / "
+                                "Equipment / ID above.",
                                 className="empty-state-hint",
                             ),
                         ],
@@ -470,17 +388,13 @@ def replacement_page_body():
                         className="empty-state",
                     ),
                 ],
-                style={
-                    **C.CARD_STYLE,
-                    "padding": 0,
-                    "overflow": "hidden",
-                },
+                className="table-card",
             ),
         ],
         id="page-replacement",
         style={
             "display": "none",
-            "padding": "28px 32px 40px",
+            "padding": "28px 36px 40px",
             "maxWidth": 1280,
             "margin": "0 auto",
             "minWidth": 0,
@@ -491,47 +405,28 @@ def replacement_page_body():
 def order_roster_page_body():
     """Full-page service order lines (schedule → completion, business days)."""
     d = _DEFAULTS
-    flabel = {
-        "fontSize": 11,
-        "fontWeight": 600,
-        "color": C.COLOR_TEXT_MUTED,
-        "letterSpacing": "0.06em",
-        "textTransform": "uppercase",
-        "marginBottom": 6,
-        "display": "block",
-    }
-    finp = {
-        "width": "100%",
-        "maxWidth": 280,
-        "padding": "10px 12px",
-        "borderRadius": 10,
-        "border": f"1px solid {C.COLOR_BORDER}",
-        "fontSize": 13,
-        "fontFamily": "inherit",
-        "boxSizing": "border-box",
-        "background": "#fff",
-    }
+    flabel = {"className": "filter-label"}
     _hdr = {
-        "backgroundColor": "#f1f5f9",
-        "color": C.COLOR_TEXT_SECONDARY,
+        "backgroundColor": "transparent",
+        "color": C.COLOR_TEXT_MUTED,
         "fontWeight": "700",
-        "fontSize": 11,
+        "fontSize": 10,
         "textTransform": "uppercase",
-        "letterSpacing": "0.06em",
-        "borderBottom": f"2px solid {C.COLOR_BORDER}",
-        "padding": "12px 16px",
+        "letterSpacing": "0.1em",
+        "borderBottom": f"1px solid {C.COLOR_BORDER}",
+        "padding": "14px 16px",
         "border": "none",
     }
     _cell = {
         "backgroundColor": C.BG_CARD,
         "color": C.COLOR_TEXT_PRIMARY,
         "fontSize": 13,
-        "padding": "12px 16px",
+        "padding": "14px 16px",
         "border": "none",
-        "borderBottom": f"1px solid {C.COLOR_BORDER}",
-        "fontFamily": "'DM Sans','Segoe UI',sans-serif",
+        "borderBottom": f"1px solid rgba(226, 232, 240, 0.7)",
+        "fontFamily": "inherit",
     }
-    _tbl = {"overflowX": "auto", "borderRadius": 12, "overflow": "hidden", "border": f"1px solid {C.COLOR_BORDER}"}
+    _tbl = {"overflowX": "auto", "borderRadius": 0, "overflow": "hidden", "border": "none"}
 
     def filter_bar(children):
         return html.Div(
@@ -551,35 +446,15 @@ def order_roster_page_body():
                     html.Span(
                         id="order-page-title-icon",
                         children=d["iconNavOrders"],
-                        style={
-                            "fontSize": 22,
-                            "marginRight": 12,
-                            "lineHeight": 1,
-                            "filter": "drop-shadow(0 1px 1px rgba(0,0,0,0.06))",
-                        },
+                        style={"fontSize": 26, "marginRight": 14, "lineHeight": 1},
                     ),
                     html.Div(
                         [
-                            html.H2(
-                                "Order roster",
-                                style={
-                                    "margin": 0,
-                                    "fontSize": 22,
-                                    "fontWeight": 800,
-                                    "color": C.COLOR_TEXT_PRIMARY,
-                                    "letterSpacing": "-0.02em",
-                                },
-                            ),
+                            html.H2("Order roster"),
                             html.P(
                                 "Service lines for the selected month: scheduled date, completed date, and "
                                 "business days between them (weekends and US federal holidays excluded).",
-                                style={
-                                    "margin": "6px 0 0",
-                                    "fontSize": 13,
-                                    "color": C.COLOR_TEXT_SECONDARY,
-                                    "lineHeight": 1.45,
-                                    "maxWidth": 820,
-                                },
+                                className="page-hero-desc",
                             ),
                         ]
                     ),
@@ -588,46 +463,18 @@ def order_roster_page_body():
             ),
             html.Div(
                 [
+                    html.Span("Scheduled date", className="legend-chip legend-chip--info"),
+                    html.Span("→", className="legend-hint", style={"margin": "0 4px"}),
+                    html.Span("Completed date", className="legend-chip legend-chip--success"),
                     html.Span(
-                        "Scheduled date",
-                        style={
-                            "color": C.COLOR_TEXT_PRIMARY,
-                            "fontWeight": 700,
-                            "fontSize": 12,
-                            "padding": "6px 12px",
-                            "borderRadius": 8,
-                            "background": "#e0f2fe",
-                            "border": "1px solid #bae6fd",
-                        },
-                    ),
-                    html.Span("→", style={"color": C.COLOR_TEXT_MUTED, "margin": "0 8px", "fontWeight": 600}),
-                    html.Span(
-                        "Completed date",
-                        style={
-                            "color": C.COLOR_TEXT_PRIMARY,
-                            "fontWeight": 700,
-                            "fontSize": 12,
-                            "padding": "6px 12px",
-                            "borderRadius": 8,
-                            "background": "#ecfdf5",
-                            "border": "1px solid #a7f3d0",
-                        },
-                    ),
-                    html.Span(
-                        "·  Business-day span matches the Overview turnaround calendar",
-                        style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12, "marginLeft": 10},
+                        "Business-day span matches the Overview turnaround calendar",
+                        className="legend-hint",
                     ),
                 ],
-                style={"display": "flex", "flexWrap": "wrap", "alignItems": "center", "marginTop": 16},
+                className="legend-row",
             ),
         ],
-        style={
-            **C.CARD_STYLE,
-            "padding": "24px 26px 22px",
-            "marginBottom": 20,
-            "borderLeft": f"4px solid {C.C_PURPLE}",
-            "boxShadow": "0 4px 24px rgba(15, 23, 42, 0.06)",
-        },
+        className="page-hero",
     )
 
     toolbar = html.Div(
@@ -635,7 +482,7 @@ def order_roster_page_body():
             [
                 html.Div(
                     [
-                        html.Label("Equipment class", style=flabel),
+                        html.Label("Equipment class", **flabel),
                         dcc.Dropdown(
                             id="order-filter-category",
                             options=[{"label": "All categories", "value": ""}],
@@ -648,37 +495,37 @@ def order_roster_page_body():
                 ),
                 html.Div(
                     [
-                        html.Label("Status contains", style=flabel),
+                        html.Label("Status contains", **flabel),
                         dcc.Input(
                             id="order-filter-status",
                             type="text",
                             placeholder="e.g. completed",
                             debounce=True,
-                            style=finp,
+                            className="filter-input",
                         ),
                     ],
                     style={"flex": "1", "minWidth": 160},
                 ),
                 html.Div(
                     [
-                        html.Label("Equipment contains", style=flabel),
+                        html.Label("Equipment contains", **flabel),
                         dcc.Input(
                             id="order-filter-equipment",
                             type="text",
                             debounce=True,
-                            style=finp,
+                            className="filter-input",
                         ),
                     ],
                     style={"flex": "1", "minWidth": 160},
                 ),
                 html.Div(
                     [
-                        html.Label("Equipment ID contains", style=flabel),
+                        html.Label("Equipment ID contains", **flabel),
                         dcc.Input(
                             id="order-filter-id",
                             type="text",
                             debounce=True,
-                            style=finp,
+                            className="filter-input",
                         ),
                     ],
                     style={"flex": "1", "minWidth": 160},
@@ -686,13 +533,6 @@ def order_roster_page_body():
             ]
         ),
         className="fm-toolbar",
-        style={
-            "background": "linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%)",
-            "border": f"1px solid {C.COLOR_BORDER}",
-            "borderRadius": 12,
-            "padding": "16px 18px",
-            "marginBottom": 18,
-        },
     )
 
     bd_col = "Business days (excl. weekends & US holidays)"
@@ -749,17 +589,13 @@ def order_roster_page_body():
                         className="empty-state",
                     ),
                 ],
-                style={
-                    **C.CARD_STYLE,
-                    "padding": 0,
-                    "overflow": "hidden",
-                },
+                className="table-card",
             ),
         ],
         id="page-orders",
         style={
             "display": "none",
-            "padding": "28px 32px 40px",
+            "padding": "28px 36px 40px",
             "maxWidth": 1280,
             "margin": "0 auto",
             "minWidth": 0,
@@ -1120,32 +956,14 @@ def settings_page_body():
                         "Apply",
                         id="settings-apply",
                         n_clicks=0,
-                        style={
-                            "padding": "10px 22px",
-                            "borderRadius": 8,
-                            "border": "none",
-                            "background": C.C_BLUE,
-                            "color": "white",
-                            "fontWeight": 700,
-                            "fontSize": 14,
-                            "cursor": "pointer",
-                            "marginRight": 10,
-                        },
+                        className="btn-primary",
+                        style={"marginRight": 10},
                     ),
                     html.Button(
                         "Reset to defaults",
                         id="settings-reset",
                         n_clicks=0,
-                        style={
-                            "padding": "10px 22px",
-                            "borderRadius": 8,
-                            "border": f"1px solid {C.COLOR_BORDER}",
-                            "background": C.BG_CARD,
-                            "color": C.COLOR_TEXT_PRIMARY,
-                            "fontWeight": 600,
-                            "fontSize": 14,
-                            "cursor": "pointer",
-                        },
+                        className="btn-secondary",
                     ),
                 ],
                 style={"display": "flex", "alignItems": "center", "flexWrap": "wrap", "gap": 8},
@@ -1171,15 +989,7 @@ def build_root_layout(month_options, default_month):
                 [
                     html.Div(
                         "Workspace",
-                        style={
-                            "fontSize": 10,
-                            "fontWeight": 700,
-                            "letterSpacing": "0.14em",
-                            "color": C.COLOR_TEXT_MUTED,
-                            "textTransform": "uppercase",
-                            "marginBottom": 12,
-                            "paddingLeft": 4,
-                        },
+                        className="sidebar-brand section-eyebrow section-eyebrow--blue",
                     ),
                     html.Div(
                         dcc.Link(
@@ -1366,29 +1176,15 @@ def build_root_layout(month_options, default_month):
                                 [
                                     html.Span(
                                         "Facilities Management Services",
-                                        style={
-                                            "fontSize": 10,
-                                            "letterSpacing": "0.18em",
-                                            "color": C.C_BLUE,
-                                            "fontWeight": 700,
-                                            "textTransform": "uppercase",
-                                        },
+                                        className="app-eyebrow",
                                     ),
-                                    html.H1(
-                                        "Work Order Dashboard",
-                                        style={
-                                            "margin": "4px 0 2px",
-                                            "fontSize": 24,
-                                            "color": C.COLOR_TEXT_PRIMARY,
-                                            "fontWeight": 800,
-                                            "lineHeight": 1.2,
-                                        },
-                                    ),
+                                    html.H1("Work Order Dashboard"),
                                     html.Span(
                                         "Custodial Equipment Repair & Service Tracker",
-                                        style={"fontSize": 13, "color": C.COLOR_TEXT_SECONDARY},
+                                        className="app-subtitle",
                                     ),
-                                ]
+                                ],
+                                className="app-header-brand",
                             ),
                             html.Div(
                                 [
@@ -1461,11 +1257,10 @@ def build_root_layout(month_options, default_month):
                 },
             ),
         ],
+        className="app-shell",
         style={
             "display": "flex",
             "height": "100vh",
             "overflow": "hidden",
-            "fontFamily": "'DM Sans','Segoe UI',sans-serif",
-            "color": C.COLOR_TEXT_PRIMARY,
         },
     )
