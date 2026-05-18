@@ -11,53 +11,35 @@ def kpi_card(label, value, icon, accent):
         [
             html.Div(
                 [
-                    html.Div(icon, style={"fontSize": 20}),
+                    html.Div(icon, style={"fontSize": 22, "lineHeight": 1}),
                     html.Div(
                         style={
-                            "width": 6,
-                            "height": 6,
+                            "width": 8,
+                            "height": 8,
                             "borderRadius": "50%",
                             "background": accent,
                             "marginLeft": "auto",
+                            "boxShadow": f"0 0 0 3px {accent}22",
                         }
                     ),
                 ],
-                style={"display": "flex", "alignItems": "center", "marginBottom": 12},
+                style={"display": "flex", "alignItems": "center", "marginBottom": 14},
             ),
-            html.Div(
-                str(value),
-                style={
-                    "fontSize": 26,
-                    "fontWeight": 800,
-                    "color": C.COLOR_TEXT_PRIMARY,
-                    "lineHeight": 1,
-                },
-            ),
-            html.Div(
-                label,
-                style={
-                    "fontSize": 11,
-                    "color": C.COLOR_TEXT_SECONDARY,
-                    "fontWeight": 600,
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.05em",
-                    "marginTop": 6,
-                },
-            ),
+            html.Div(str(value), className="kpi-value"),
+            html.Div(label, className="kpi-label"),
             html.Div(
                 style={
                     "height": 3,
-                    "borderRadius": 2,
-                    "background": accent,
-                    "marginTop": 14,
-                    "opacity": 0.7,
+                    "borderRadius": 999,
+                    "background": f"linear-gradient(90deg, {accent}, {accent}55)",
+                    "marginTop": 16,
                 }
             ),
         ],
-        className="lift-on-hover",
+        className="kpi-card lift-on-hover",
         style={
             **C.CARD_STYLE,
-            "padding": "18px 18px 14px",
+            "padding": "20px 20px 16px",
             "minWidth": 140,
             "flex": "1",
             "borderTop": f"3px solid {accent}",
