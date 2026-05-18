@@ -3,6 +3,7 @@
 import pandas as pd
 
 from dashboard.calendar_util import business_days_inclusive
+from dashboard.taxonomy import filter_equip_id_substr, norm_equip_id
 
 
 def _pick_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
@@ -58,7 +59,8 @@ def build_repair_orders_table(svc: pd.DataFrame, filters: dict | None = None):
                     bd_str = f"{bd:.0f}"
 
         name = str(r[name_col]) if name_col and pd.notna(r.get(name_col)) else ""
-        eid = str(r[id_col]) if id_col and pd.notna(r.get(id_col)) else ""
+        raw_eid = r[id_col] if id_col and pd.notna(r.get(id_col)) else ""
+        eid = norm_equip_id(raw_eid) if raw_eid != "" else ""
         cat = str(r.get("equipCategory", "") or "")
         st = str(r.get(status_col, "") or "").strip() if status_col else ""
 
@@ -88,9 +90,9 @@ def build_repair_orders_table(svc: pd.DataFrame, filters: dict | None = None):
     if eq_f:
         tdf = tdf[tdf["Equipment"].str.lower().str.contains(eq_f, na=False)]
 
-    id_f = (filters.get("id_substr") or "").strip().lower()
+    id_f = (filters.get("id_substr") or "").strip()
     if id_f:
-        tdf = tdf[tdf["Equipment ID"].str.lower().str.contains(id_f, na=False)]
+        tdf = tdf[filter_equip_id_substr(tdf["Equipment ID"], id_f)]
 
     cond = [
         {

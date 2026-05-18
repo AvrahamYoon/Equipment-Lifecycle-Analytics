@@ -138,7 +138,8 @@ def register_callbacks(app):
             "equipment_substr": rep_equip or "",
             "id_substr": rep_id or "",
         }
-        total = int(rep["equipId"].nunique()) if not rep.empty and "equipId" in rep.columns else 0
+        id_col = "equipIdNorm" if "equipIdNorm" in rep.columns else "equipId"
+        total = int(rep[id_col].nunique()) if not rep.empty and id_col in rep.columns else 0
         cols, records, cond = build_replacement_table(rep, settings_data, rep_filters)
         return (
             cols,

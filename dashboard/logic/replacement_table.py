@@ -9,6 +9,7 @@ import pandas as pd
 from dashboard import constants as C
 from dashboard.equipment_pricing import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
 from dashboard.logic.overview.settings_merge import merge_app_settings, replace_status_icons
+from dashboard.taxonomy import ensure_equip_id_norm_column, filter_equip_id_substr
 
 
 def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
@@ -17,16 +18,20 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     ico = replace_status_icons(merged)
     filters = filters or {}
 
+    rep = ensure_equip_id_norm_column(rep, raw_col="equipId", norm_col="equipIdNorm")
+    rep = rep[rep["equipIdNorm"].astype(str).str.len() > 0]
+    group_col = "equipIdNorm"
+
     agg_cols = {
         "equipment": ("equipment", "first"),
-        "equipId": ("equipId", "first"),
+        "equipId": (group_col, "first"),
         "newPrice": ("newPrice", "first"),
         "parts": ("parts", "sum"),
         "labor": ("labor", "sum"),
     }
     if "priceSource" in rep.columns:
         agg_cols["priceSource"] = ("priceSource", "first")
-    agg = rep.groupby("equipId").agg(**agg_cols).reset_index(drop=True)
+    agg = rep.groupby(group_col, dropna=False).agg(**agg_cols).reset_index(drop=True)
     if "priceSource" not in agg.columns:
         agg["priceSource"] = ""
 
@@ -47,9 +52,9 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     if eq_sub:
         agg = agg[agg["equipment"].astype(str).str.lower().str.contains(eq_sub, na=False)]
 
-    id_sub = (filters.get("id_substr") or "").strip().lower()
+    id_sub = (filters.get("id_substr") or "").strip()
     if id_sub:
-        agg = agg[agg["equipId"].astype(str).str.lower().str.contains(id_sub, na=False)]
+        agg = agg[filter_equip_id_substr(agg["equipId"], id_sub)]
 
     agg = agg.sort_values("Status")
 

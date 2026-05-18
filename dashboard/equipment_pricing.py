@@ -4,7 +4,7 @@ import os
 
 import pandas as pd
 
-from dashboard.taxonomy import norm_equip_id
+from dashboard.taxonomy import ensure_equip_id_norm_column, norm_equip_id
 
 
 def _norm_col_key(name: str) -> str:
@@ -139,11 +139,12 @@ def apply_new_prices_to_repairs(
         out["newPrice"] = pd.Series(dtype=float)
         out["priceSource"] = pd.Series(dtype=str)
         return out
-    out = df.copy()
-    out["newPrice"] = out["equipId"].map(
+    out = ensure_equip_id_norm_column(df, raw_col="equipId", norm_col="equipIdNorm")
+    norm_ids = out["equipIdNorm"]
+    out["newPrice"] = norm_ids.map(
         lambda x: resolve_new_price(x, purchase_map, service_map)
     )
-    out["priceSource"] = out["equipId"].map(
+    out["priceSource"] = norm_ids.map(
         lambda x: resolve_price_source(x, purchase_map, service_map)
     )
     return out
