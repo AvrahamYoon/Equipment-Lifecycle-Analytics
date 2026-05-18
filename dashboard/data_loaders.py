@@ -12,7 +12,12 @@ from dashboard.equipment_pricing import (
     build_service_price_map,
     load_purchase_price_map,
 )
-from dashboard.taxonomy import equipment_chart_class, equipment_row_category, norm_equip_id
+from dashboard.taxonomy import (
+    ensure_equip_id_norm_column,
+    equipment_chart_class,
+    equipment_row_category,
+    norm_equip_id,
+)
 
 _SQL_DIR = os.path.join(os.path.dirname(__file__), "sql")
 
@@ -114,7 +119,7 @@ def load_service(path: str) -> pd.DataFrame:
     df["month_key"] = df["Sched. Date"].dt.to_period("M").astype(str)
     id_col = "Equipment Id" if "Equipment Id" in df.columns else None
     if id_col:
-        df["equipIdNorm"] = df[id_col].map(norm_equip_id)
+        df = ensure_equip_id_norm_column(df, raw_col=id_col, norm_col="equipIdNorm")
     else:
         df["equipIdNorm"] = ""
     name_col = "Equipment Name" if "Equipment Name" in df.columns else None
@@ -215,6 +220,7 @@ def load_repairs(path: str) -> pd.DataFrame:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["month_key"] = df["date"].dt.to_period("M").astype(str)
+    df = ensure_equip_id_norm_column(df, raw_col="equipId", norm_col="equipIdNorm")
 
     df = _drop_duplicate_columns(df)
     return df
