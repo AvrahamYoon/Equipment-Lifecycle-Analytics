@@ -7,6 +7,7 @@ SERVICE_DIR = os.path.join("data", "service")
 REPAIRS_DIR = os.path.join("data", "repairs")
 EQUIPMENT_SUMMARY_CSV = os.path.join("data", "equipment", "cleaned", "all_equipment_summary.csv")
 PURCHASE_CSV = os.path.join("data", "equipment", "purchase", "purchase.csv")
+EQUIPMENT_TYPE_CSV = os.path.join("data", "equipment", "purchase", "Type.csv")
 
 BASE_AVAIL_DAYS = 311
 
@@ -83,17 +84,25 @@ def default_app_settings():
     }
 
 
+# Preferred chart order for ``EquipType`` (cleaned summary + purchase/Type.csv).
 CHART_CLASS_ORDER = [
-    "Versamatic",
-    "Lindhaus",
+    "Vacuum",
+    "Backpack Vacuum",
+    "Battery-powered vacuum",
+    "Floor Fan",
+    "Chemical Dispenser",
+    "Carpet Cleaning",
+    "Carpet Cleaning Machine",
+    "Upholstery Cleaner",
+    "Upholstery machine",
+    "Scrubber",
+    "Burnisher",
+    "Buffer",
     "Kaivac",
-    "Wet-dry / shop vacuums",
-    "Other vacuums",
-    "Floor machines",
-    "Carpet / extractors",
-    "Ladders",
-    "Dispensers",
-    "Janitorial / carts",
+    "Swing Arm",
+    "Ladder",
+    "Chariot",
+    "Agitator",
     "Other",
 ]
 CHART_CLASS_RANK = {c: i for i, c in enumerate(CHART_CLASS_ORDER)}

@@ -13,10 +13,13 @@ from dashboard.equipment_pricing import (
     load_purchase_price_map,
 )
 from dashboard.taxonomy import (
+    apply_equip_category,
+    build_equip_category_lookup,
     ensure_equip_id_norm_column,
-    equipment_chart_class,
     equipment_row_category,
+    load_equip_type_map,
     norm_equip_id,
+    normalize_equip_type,
 )
 
 _SQL_DIR = os.path.join(os.path.dirname(__file__), "sql")
@@ -122,11 +125,6 @@ def load_service(path: str) -> pd.DataFrame:
         df = ensure_equip_id_norm_column(df, raw_col=id_col, norm_col="equipIdNorm")
     else:
         df["equipIdNorm"] = ""
-    name_col = "Equipment Name" if "Equipment Name" in df.columns else None
-    if name_col:
-        df["equipCategory"] = df[name_col].map(equipment_chart_class)
-    else:
-        df["equipCategory"] = "Other"
     return df
 
 
@@ -279,7 +277,14 @@ def load_equipment_summary() -> pd.DataFrame:
         return df
     df = df.copy()
     df["equipIdNorm"] = df["EquipmentId"].map(norm_equip_id)
-    df["category"] = df.apply(equipment_row_category, axis=1)
+    type_map = load_equip_type_map(C.EQUIPMENT_TYPE_CSV)
+    if type_map and "EquipType" in df.columns:
+        missing = df["EquipType"].map(normalize_equip_type) == ""
+        df.loc[missing, "EquipType"] = df.loc[missing, "equipIdNorm"].map(type_map)
+    df["category"] = df.apply(
+        lambda row: equipment_row_category(row, type_map=type_map),
+        axis=1,
+    )
     return df
 
 
@@ -288,6 +293,14 @@ try:
     df_service = _load_service_merged()
     df_repairs = _load_repairs_merged()
     df_equip = load_equipment_summary()
+    _equip_type_map = load_equip_type_map(C.EQUIPMENT_TYPE_CSV)
+    _equip_category_lookup = build_equip_category_lookup(df_equip, _equip_type_map)
+    df_service = apply_equip_category(
+        df_service, _equip_category_lookup, id_col="equipIdNorm"
+    )
+    df_repairs = apply_equip_category(
+        df_repairs, _equip_category_lookup, id_col="equipIdNorm"
+    )
     _purchase_prices = load_purchase_price_map(C.PURCHASE_CSV)
     _service_prices = build_service_price_map(df_service)
     df_repairs = apply_new_prices_to_repairs(df_repairs, _purchase_prices, _service_prices)

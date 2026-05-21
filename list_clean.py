@@ -2,7 +2,10 @@ import os
 
 import pandas as pd
 
+from dashboard.taxonomy import load_equip_type_map, normalize_equip_type, norm_equip_id
+
 INPUT_DIR = os.path.join("data", "equipment", "raw")
+TYPE_CSV = os.path.join("data", "equipment", "purchase", "Type.csv")
 OUTPUT_DIR = os.path.join("data", "equipment", "cleaned")
 SUMMARY_NAME = "all_equipment_summary.csv"
 
@@ -158,6 +161,13 @@ def clean_equipment_file(filepath: str) -> pd.DataFrame:
     for col in TARGET_COLS:
         if col not in df.columns:
             df[col] = pd.NA
+
+    type_map = load_equip_type_map(TYPE_CSV)
+    if type_map:
+        missing = df["EquipType"].map(normalize_equip_type) == ""
+        df.loc[missing, "EquipType"] = df.loc[missing, "EquipmentId"].map(
+            lambda x: type_map.get(norm_equip_id(x), pd.NA)
+        )
 
     return df[TARGET_COLS]
 

@@ -6,18 +6,23 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from dashboard import constants as C
-from dashboard.taxonomy import equipment_chart_class
+from dashboard.taxonomy import chart_category_rank, equipment_chart_class
 
 
 def build_repair_hours_figure(rep: pd.DataFrame) -> go.Figure:
     hours_map = {}
+    use_category = "equipCategory" in rep.columns
     for _, row in rep.iterrows():
-        eq = equipment_chart_class(str(row["equipment"]))
+        if use_category:
+            eq = str(row.get("equipCategory") or "Other")
+        else:
+            eq = equipment_chart_class(str(row["equipment"]))
         hours_map[eq] = hours_map.get(eq, 0) + row["hours"]
 
+    rank = chart_category_rank(hours_map.keys())
     eq_names = sorted(
         hours_map.keys(),
-        key=lambda k: (C.CHART_CLASS_RANK.get(k, len(C.CHART_CLASS_ORDER)), -hours_map[k]),
+        key=lambda k: (rank.get(k, len(rank)), -hours_map[k]),
     )
     eq_hours = [hours_map[k] for k in eq_names]
     _pal = [
@@ -468,7 +473,8 @@ def build_turnaround_figure(done_svc: pd.DataFrame) -> go.Figure:
     # Filter to only show categories that actually have data
     avg_turn = avg_turn[avg_turn["turnaround_bd"] > 0]
     
-    avg_turn["_ord"] = avg_turn["equipCategory"].map(C.CHART_CLASS_RANK)
+    turn_rank = chart_category_rank(avg_turn["equipCategory"])
+    avg_turn["_ord"] = avg_turn["equipCategory"].map(turn_rank)
     avg_turn = avg_turn.sort_values(
         ["_ord", "turnaround_bd"],
         ascending=[True, True],
@@ -510,7 +516,7 @@ def build_turnaround_figure(done_svc: pd.DataFrame) -> go.Figure:
     
     fig.update_layout(
         title=dict(
-            text="Avg turnaround by equipment class (schedule → completion)",
+            text="Avg turnaround by equipment type (schedule → completion)",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,
@@ -583,7 +589,8 @@ def build_availability_figure(
         pct = (sum(terms) / len(all_ids)) * 100.0
         avail_by_cat[cat] = pct
 
-    avail_cats = [c for c in C.CHART_CLASS_ORDER if c in avail_by_cat]
+    avail_rank = chart_category_rank(avail_by_cat.keys())
+    avail_cats = sorted(avail_by_cat.keys(), key=lambda c: avail_rank.get(c, len(avail_rank)))
     avail_pcts = [avail_by_cat[c] for c in avail_cats]
 
     if not avail_cats:
@@ -617,7 +624,7 @@ def build_availability_figure(
     )
     fig.update_layout(
         title=dict(
-            text="Availability by equipment group",
+            text="Availability by equipment type",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,
