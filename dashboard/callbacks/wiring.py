@@ -55,12 +55,13 @@ def register_callbacks(app):
         on_rep = pathname == "/replacement"
         on_ord = pathname == "/orders"
         on_set = pathname == "/settings"
-        page = {
-            "padding": "0",
-            "maxWidth": "100%",
-            "margin": "0",
-            "minWidth": 0,
-        }
+        # Keep each page's intended outer spacing. The corresponding page
+        # bodies in `dashboard/layouts/shell.py` already define padding and
+        # maxWidth, but this callback overwrites the full `style` dict.
+        page_overview = {"padding": "28px 36px 40px", "maxWidth": 1440, "margin": "0 auto", "minWidth": 0}
+        page_replacement = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
+        page_orders = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
+        page_settings = {"padding": "24px 28px", "maxWidth": 1240, "margin": "0 auto", "minWidth": 0}
 
         def nav_item(active: bool):
             return {
@@ -85,10 +86,10 @@ def register_callbacks(app):
 
         ov = not on_rep and not on_ord and not on_set
         return (
-            {**page, "display": "block" if ov else "none"},
-            {**page, "display": "block" if on_rep else "none"},
-            {**page, "display": "block" if on_ord else "none"},
-            {**page, "display": "block" if on_set else "none"},
+            {**page_overview, "display": "block" if ov else "none"},
+            {**page_replacement, "display": "block" if on_rep else "none"},
+            {**page_orders, "display": "block" if on_ord else "none"},
+            {**page_settings, "display": "block" if on_set else "none"},
             nav_item(ov),
             nav_item(on_rep),
             nav_item(on_ord),
