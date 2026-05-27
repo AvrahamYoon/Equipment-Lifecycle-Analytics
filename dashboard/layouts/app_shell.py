@@ -3,13 +3,11 @@
 from dash import dcc, html
 
 from dashboard import constants as C
-from dashboard.layouts.page_bodies import (
-    admin_page_body,
-    order_roster_page_body,
-    overview_page_body,
-    replacement_page_body,
-    settings_page_body,
-)
+from dashboard.layouts.page_admin import admin_page_body
+from dashboard.layouts.page_orders import order_roster_page_body
+from dashboard.layouts.page_overview import overview_page_body
+from dashboard.layouts.page_replacement import replacement_page_body
+from dashboard.layouts.page_settings import settings_page_body
 
 _DEFAULTS = C.default_app_settings()
 

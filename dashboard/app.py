@@ -6,7 +6,7 @@ from dashboard import constants as C
 from dashboard.auth import configure_auth
 from dashboard.callbacks.wiring import register_callbacks
 from dashboard.data_loaders import MONTH_OPTIONS, all_months
-from dashboard.layouts.shell import build_root_layout
+from dashboard.layouts.app_shell import build_root_layout
 
 
 def create_app() -> Dash:
