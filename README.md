@@ -27,10 +27,33 @@ Python 3.10+ recommended.
 **Dashboard** — from the repo root, with at least one `*.csv` in each of `data/requests/`, `data/service/`, and `data/repairs/`:
 
 ```bash
+python create_admin.py --username admin
+```
+
+Then start the app:
+
+```bash
 python work_order_dashboard.py
 ```
 
-Open `http://127.0.0.1:8050`. Paths are fixed in `dashboard/constants.py`; change them there and restart. If startup reports a missing folder, create it or add exports. Run from the project root so `data/...` resolves.
+By default the app now binds to `0.0.0.0:8050`, so you can open it from:
+
+- Local machine: `http://127.0.0.1:8050`
+- LAN device: `http://<your-lan-ip>:8050`
+
+Optional run flags:
+
+```bash
+python work_order_dashboard.py --host 0.0.0.0 --port 8050 --debug
+```
+
+Paths are fixed in `dashboard/constants.py`; change them there and restart. If startup reports a missing folder, create it or add exports. Run from the project root so `data/...` resolves.
+
+### Auth env vars (admin-only MVP)
+
+- `AUTH_DB_PATH` (optional): SQLite file path, defaults to `data/auth/users.db`
+- `DASHBOARD_SECRET_KEY` (recommended): Flask session secret
+- `SESSION_COOKIE_SECURE` (optional): set `1` when serving over HTTPS
 
 **Equipment cleaner** — put Compuclean exports in `data/equipment/raw/`, then:
 
