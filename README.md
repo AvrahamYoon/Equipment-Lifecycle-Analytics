@@ -1,6 +1,6 @@
 # Equipment Lifecycle Analytics
 
-Work-order analytics in a Dash dashboard plus an offline pipeline to normalize Compuclean equipment exports. CSVs under `data/` are the source of truth; the app loads them at startup and keeps chart logic in pandas.
+Work-order analytics in a Dash dashboard plus an offline pipeline to normalize Compuclean equipment exports. CSVs under `data/` are the source of truth; the app loads them at startup and keeps chart logic in pandas. DuckDB is used for CSV-oriented analytic reads/merges, while SQLite is used only for auth account storage.
 
 ## Tech stack
 
@@ -8,7 +8,9 @@ Work-order analytics in a Dash dashboard plus an offline pipeline to normalize C
 [![Dash](https://img.shields.io/badge/Dash-0084d6?style=flat&logo=plotly&logoColor=white)](https://dash.plotly.com/)
 [![pandas](https://img.shields.io/badge/pandas-150458?style=flat&logo=pandas&logoColor=white)](https://pandas.pydata.org/)
 [![Plotly](https://img.shields.io/badge/Plotly-239120?style=flat&logo=plotly&logoColor=white)](https://plotly.com/python/)
+[![Flask](https://img.shields.io/badge/Flask-000000?style=flat&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![DuckDB](https://img.shields.io/badge/DuckDB-FFD700?style=flat&logo=duckdb&logoColor=black)](https://duckdb.org/)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white)](https://sqlite.org/)
 [![SQL](https://img.shields.io/badge/SQL-005571?style=flat)](https://duckdb.org/docs/sql/introduction)
 [![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)](https://developer.mozilla.org/docs/Web/CSS)
 
@@ -71,8 +73,11 @@ Writes per-file `*_cleaned.csv` and merged `all_equipment_summary.csv` (deduped 
 |------|------|
 | `work_order_dashboard.py` | Entry point for the Dash server |
 | `dashboard/` | Application package (factory, layout, callbacks, loaders, theme constants, taxonomy helpers, calendar helpers) |
-| `dashboard/sql/` | DuckDB SQL used for stacking multi-file exports and for selected `read_csv_auto` reads (wired from `data_loaders.py`) |
+| `dashboard/sql/` | DuckDB SQL templates used for stacking multi-file exports and selected `read_csv_auto` reads |
+| `dashboard/sql_exec.py` | SQL/DuckDB execution helpers (`run_csv_sql`, `merge_frames_by_name`) used by `data_loaders.py` |
 | `dashboard/assets/dashboard.css` | Global styles: tables, header/toolbar focus, pills, empty states |
+| `dashboard/layouts/app_shell.py` | Root app shell (sidebar, header, page mounting) |
+| `dashboard/layouts/page_*.py` | One module per page body (`overview`, `replacement`, `orders`, `settings`, `admin`) |
 | `dashboard/logic/overview/` | Overview KPIs, Plotly figures, service prep, settings merge |
 | `dashboard/logic/replacement_table.py` | Replacement `DataTable` (cumulative repair cost vs. estimated new price) |
 | `dashboard/logic/repair_orders_table.py` | Order roster `DataTable` (service lines, business-day span, filters) |
@@ -87,15 +92,19 @@ Writes per-file `*_cleaned.csv` and merged `all_equipment_summary.csv` (deduped 
 
 Each block below is one slice of the codebase; the trickier areas (export formats and loading) get a bit more detail.
 
-### Data loading (`data_loaders.py`, `dashboard/sql/`, `taxonomy.py`)
+### Data loading (`data_loaders.py`, `dashboard/sql_exec.py`, `dashboard/sql/`, `taxonomy.py`)
 
 Repair and request exports often ship with one or more preamble rows before the real header. Loaders scan the raw grid for sentinels (e.g. first-column `#` for repairs, `Work Order #` for requests), then normalize duplicate or blank header cells, map alias column names into stable fields, and coerce dates and numerics. Repair rows without a usable completed date are counted per file and logged so silent parse drift is visible.
 
-After each file is shaped in Python, all CSVs in a folder are stacked with DuckDB (`UNION ALL BY NAME` via `dashboard/sql/merge_union_by_name.sql`) instead of a large `pandas.concat`. Service files and the equipment summary are read through `read_csv_auto` in `dashboard/sql/`; taxonomy helpers (`norm_equip_id`, equipment classes, replacement price hints) still run in Python. Downstream callbacks receive the same pandas `DataFrame` objects as before.
+After each file is shaped in Python, all CSVs in a folder are stacked with DuckDB (`UNION ALL BY NAME` via `dashboard/sql/merge_union_by_name.sql`) instead of a large `pandas.concat`. Service files and the equipment summary are read through `read_csv_auto` SQL templates in `dashboard/sql/`, executed via `dashboard/sql_exec.py`; taxonomy helpers (`norm_equip_id`, equipment classes, replacement price hints) still run in Python. Downstream callbacks receive the same pandas `DataFrame` objects as before.
 
-### Application shell (`app.py`, `layouts/shell.py`, `callbacks/wiring.py`)
+### Application shell (`app.py`, `layouts/app_shell.py`, `layouts/page_*.py`, `callbacks/wiring.py`)
 
-`create_app` registers callbacks and builds the root layout. The sidebar drives routes (`/`, `/replacement`, `/orders`, settings). Callbacks wire the month selector and `dcc.Store` settings into overview figures, the replacement table, and the order roster; `update_title=None` avoids the browser tab flashing Dash’s default “Updating…” during burst updates.
+`create_app` registers callbacks and builds the root layout from `app_shell.py`. The sidebar drives routes (`/`, `/replacement`, `/orders`, settings), and each page body lives in its own `page_*.py` module. Callbacks wire the month selector and `dcc.Store` settings into overview figures, the replacement table, and the order roster; `update_title=None` avoids the browser tab flashing Dash’s default “Updating…” during burst updates.
+
+### Authentication storage (`dashboard/auth/`)
+
+Auth uses SQLite (`data/auth/users.db`) for user accounts, roles, and password hashes. SQLite WAL mode also creates `users.db-wal` and `users.db-shm` runtime files. These DB files are local state and should typically stay out of version control.
 
 ### Overview (`logic/overview/`)
 
