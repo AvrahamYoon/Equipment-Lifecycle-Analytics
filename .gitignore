@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+data/auth/users.db-wal
+data/auth/users.db-shm
+data/auth/users.db

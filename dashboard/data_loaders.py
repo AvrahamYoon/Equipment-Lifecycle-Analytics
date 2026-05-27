@@ -3,7 +3,6 @@
 import glob
 import os
 
-import duckdb
 import pandas as pd
 
 from dashboard import constants as C
@@ -21,35 +20,7 @@ from dashboard.taxonomy import (
     norm_equip_id,
     normalize_equip_type,
 )
-
-_SQL_DIR = os.path.join(os.path.dirname(__file__), "sql")
-
-
-def _load_sql(filename: str) -> str:
-    path = os.path.join(_SQL_DIR, filename)
-    with open(path, encoding="utf-8") as f:
-        return f.read()
-
-
-def _merge_frames_duckdb(frames: list[pd.DataFrame]) -> pd.DataFrame:
-    """Stack identically-shaped frames with DuckDB (UNION ALL BY NAME); same role as pd.concat."""
-    if not frames:
-        return pd.DataFrame()
-    if len(frames) == 1:
-        return frames[0].reset_index(drop=True)
-    template = _load_sql("merge_union_by_name.sql")
-    con = duckdb.connect(database=":memory:")
-    try:
-        names: list[str] = []
-        for i, fr in enumerate(frames):
-            nm = f"_merge_{i}"
-            con.register(nm, fr)
-            names.append(nm)
-        union_body = " UNION ALL BY NAME ".join(f"SELECT * FROM {n}" for n in names)
-        sql = template.replace("{{UNION_BODY}}", union_body)
-        return con.execute(sql).df()
-    finally:
-        con.close()
+from dashboard.sql_exec import merge_frames_by_name, run_csv_sql
 
 
 def _csv_paths_in_dir(directory: str) -> list[str]:
@@ -111,12 +82,7 @@ def load_requests(path: str) -> pd.DataFrame:
 
 
 def load_service(path: str) -> pd.DataFrame:
-    sql = _load_sql("service_orders_from_csv.sql")
-    con = duckdb.connect(database=":memory:")
-    try:
-        df = con.execute(sql, [path]).df()
-    finally:
-        con.close()
+    df = run_csv_sql("service_orders_from_csv.sql", path)
     df["Sched. Date"] = pd.to_datetime(df["Sched. Date"], errors="coerce")
     df["Completed Date"] = pd.to_datetime(df["Completed Date"], errors="coerce")
     df["month_key"] = df["Sched. Date"].dt.to_period("M").astype(str)
@@ -230,7 +196,7 @@ def _load_requests_merged() -> pd.DataFrame:
         raise FileNotFoundError(
             f"No *.csv under {C.REQUESTS_DIR!r}. Create the folder and add at least one request export."
         )
-    return _merge_frames_duckdb([load_requests(p) for p in paths])
+    return merge_frames_by_name([load_requests(p) for p in paths])
 
 
 def _load_service_merged() -> pd.DataFrame:
@@ -239,7 +205,7 @@ def _load_service_merged() -> pd.DataFrame:
         raise FileNotFoundError(
             f"No *.csv under {C.SERVICE_DIR!r}. Create the folder and add at least one service export."
         )
-    return _merge_frames_duckdb([load_service(p) for p in paths])
+    return merge_frames_by_name([load_service(p) for p in paths])
 
 
 def _load_repairs_merged() -> pd.DataFrame:
@@ -258,19 +224,14 @@ def _load_repairs_merged() -> pd.DataFrame:
                 f"Completed Date (header row not detected?)."
             )
         frames.append(df)
-    return _merge_frames_duckdb(frames)
+    return merge_frames_by_name(frames)
 
 
 def load_equipment_summary() -> pd.DataFrame:
     if not os.path.isfile(C.EQUIPMENT_SUMMARY_CSV):
         return pd.DataFrame()
     try:
-        sql = _load_sql("equipment_summary_from_csv.sql")
-        con = duckdb.connect(database=":memory:")
-        try:
-            df = con.execute(sql, [C.EQUIPMENT_SUMMARY_CSV]).df()
-        finally:
-            con.close()
+        df = run_csv_sql("equipment_summary_from_csv.sql", C.EQUIPMENT_SUMMARY_CSV)
     except Exception:
         return pd.DataFrame()
     if df.empty or "EquipmentId" not in df.columns:

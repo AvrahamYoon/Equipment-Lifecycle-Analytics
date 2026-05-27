@@ -1,9 +1,17 @@
 """Register Dash callbacks."""
 
-from dash import Input, Output, State, callback_context, html
+from dash import Input, Output, State, callback_context, html, no_update
 from dash.exceptions import PreventUpdate
 
 from dashboard import constants as C
+from dashboard.auth import (
+    list_users,
+    resolve_auth_db_path,
+    set_user_active,
+    set_user_password,
+    set_user_role,
+    upsert_user,
+)
 from dashboard.data_loaders import (
     df_equip,
     df_req,
@@ -14,6 +22,8 @@ from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
 from dashboard.logic.replacement_table import build_replacement_table
+
+from flask import session as flask_session
 
 
 def _format_row_count(filtered: int, total: int, item_singular: str):
@@ -43,10 +53,12 @@ def register_callbacks(app):
         Output("page-replacement", "style"),
         Output("page-orders", "style"),
         Output("page-settings", "style"),
+        Output("page-admin", "style"),
         Output("nav-wrap-overview", "style"),
         Output("nav-wrap-replacement", "style"),
         Output("nav-wrap-orders", "style"),
         Output("nav-wrap-settings", "style"),
+        Output("nav-wrap-admin", "style"),
         Input("url", "pathname"),
     )
     def route_pages(pathname):
@@ -55,6 +67,8 @@ def register_callbacks(app):
         on_rep = pathname == "/replacement"
         on_ord = pathname == "/orders"
         on_set = pathname == "/settings"
+        on_admin = pathname == "/admin"
+        role = str(flask_session.get("role") or "")
         # Keep each page's intended outer spacing. The corresponding page
         # bodies in `dashboard/layouts/shell.py` already define padding and
         # maxWidth, but this callback overwrites the full `style` dict.
@@ -62,6 +76,7 @@ def register_callbacks(app):
         page_replacement = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
         page_orders = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
         page_settings = {"padding": "24px 28px", "maxWidth": 1240, "margin": "0 auto", "minWidth": 0}
+        page_admin = {"padding": "24px 28px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
 
         def nav_item(active: bool):
             return {
@@ -84,16 +99,18 @@ def register_callbacks(app):
                 ),
             }
 
-        ov = not on_rep and not on_ord and not on_set
+        ov = not on_rep and not on_ord and not on_set and not on_admin
         return (
             {**page_overview, "display": "block" if ov else "none"},
             {**page_replacement, "display": "block" if on_rep else "none"},
             {**page_orders, "display": "block" if on_ord else "none"},
             {**page_settings, "display": "block" if on_set else "none"},
+            {**page_admin, "display": "block" if on_admin and role == "admin" else "none"},
             nav_item(ov),
             nav_item(on_rep),
             nav_item(on_ord),
             nav_item(on_set),
+            ({**nav_item(on_admin), "display": "block"} if role == "admin" else {"display": "none"}),
         )
 
     @app.callback(
@@ -391,3 +408,155 @@ def register_callbacks(app):
             m["iconReplaceStatusMonitor"],
             m["iconReplaceStatusGood"],
         )
+
+    @app.callback(
+        Output("auth-status", "children"),
+        Input("url", "pathname"),
+    )
+    def render_auth_status(_pathname):
+        username = flask_session.get("username")
+        role = flask_session.get("role")
+        if not username:
+            return html.Div("Not signed in", style={"color": C.COLOR_TEXT_MUTED, "fontSize": 12})
+        return html.Div(
+            [
+                html.Div(f"Signed in: {username} ({role})", style={"marginBottom": 6}),
+                html.A(
+                    "Logout",
+                    href="/logout",
+                    style={"color": "#3b82f6", "textDecoration": "none", "fontWeight": 700},
+                ),
+            ]
+        )
+
+    @app.callback(
+        Output("admin-users-table", "data"),
+        Output("admin-users-table", "columns"),
+        Output("admin-users-table", "style_data_conditional"),
+        Input("url", "pathname"),
+        Input("admin-add-user-btn", "n_clicks"),
+        Input("admin-save-user-btn", "n_clicks"),
+    )
+    def load_admin_users(pathname, _add_clicks, _save_clicks):
+        if pathname != "/admin":
+            return no_update, no_update, no_update
+        db_path = resolve_auth_db_path()
+        users = list_users(db_path)
+        columns = [
+            {"name": "ID", "id": "id"},
+            {"name": "Username", "id": "username"},
+            {"name": "Role", "id": "role"},
+            {"name": "Active", "id": "is_active"},
+            {"name": "Created", "id": "created_at"},
+            {"name": "Last login", "id": "last_login_at"},
+        ]
+        current_user_id = flask_session.get("user_id")
+        style_data_conditional = []
+        if current_user_id is not None:
+            style_data_conditional.append(
+                {
+                    "if": {"filter_query": f"{{id}} = {int(current_user_id)}"},
+                    "backgroundColor": "#eff6ff",
+                    "fontWeight": 700,
+                }
+            )
+        return users, columns, style_data_conditional
+
+    @app.callback(
+        Output("admin-edit-active", "value"),
+        Output("admin-edit-role", "value"),
+        Output("admin-edit-password", "value"),
+        Input("admin-users-table", "selected_rows"),
+        State("admin-users-table", "data"),
+    )
+    def sync_admin_edit_fields(selected_rows, table_data):
+        if not selected_rows or not table_data:
+            return 1, "user", ""
+        idx = selected_rows[0]
+        if idx is None or idx >= len(table_data):
+            return 1, "user", ""
+        row = table_data[idx]
+        active = 1 if bool(row.get("is_active")) else 0
+        role = str(row.get("role") or "user")
+        return active, role, ""
+
+    @app.callback(
+        Output("admin-message", "children"),
+        Input("admin-add-user-btn", "n_clicks"),
+        Input("admin-save-user-btn", "n_clicks"),
+        State("admin-add-username", "value"),
+        State("admin-add-password", "value"),
+        State("admin-add-role", "value"),
+        State("admin-add-active", "value"),
+        State("admin-users-table", "selected_rows"),
+        State("admin-users-table", "data"),
+        State("admin-edit-active", "value"),
+        State("admin-edit-role", "value"),
+        State("admin-edit-password", "value"),
+    )
+    def handle_admin_actions(
+        add_clicks,
+        save_clicks,
+        add_username,
+        add_password,
+        add_role,
+        add_active,
+        selected_rows,
+        table_data,
+        edit_active,
+        edit_role,
+        edit_password,
+    ):
+        triggered = [t["prop_id"] for t in callback_context.triggered if t["prop_id"] != "."]
+        if not triggered:
+            raise PreventUpdate
+
+        db_path = resolve_auth_db_path()
+        tid = triggered[0].split(".")[0]
+        current_user_id = flask_session.get("user_id")
+
+        try:
+            if tid == "admin-add-user-btn":
+                username = (add_username or "").strip()
+                password = add_password or ""
+                role = str(add_role or "user").strip().lower()
+                if not username or not password:
+                    return html.Div("Username and password are required.", style={"color": "#b91c1c"})
+                is_active = 1 if int(add_active) == 1 else 0
+
+                upsert_user(db_path, username, password, role, is_active=bool(is_active))
+                return html.Div(f"User '{username}' added/updated.", style={"color": "#047857"})
+
+            if tid == "admin-save-user-btn":
+                if not selected_rows or not table_data:
+                    return html.Div("Select a user row first.", style={"color": "#b91c1c"})
+                idx = selected_rows[0]
+                if idx is None or idx >= len(table_data):
+                    return html.Div("Invalid selection.", style={"color": "#b91c1c"})
+                row = table_data[idx]
+                user_id = int(row.get("id"))
+                desired_active = 1 if int(edit_active) == 1 else 0
+                desired_role = str(edit_role or row.get("role") or "user").strip().lower()
+                desired_password = (edit_password or "").strip()
+
+                # Prevent disabling the currently logged-in admin.
+                if str(user_id) == str(current_user_id) and desired_active == 0:
+                    return html.Div("You can't disable your own active admin account.", style={"color": "#b91c1c"})
+
+                current_active = 1 if bool(row.get("is_active")) else 0
+                if desired_active != current_active:
+                    set_user_active(db_path, user_id, desired_active == 1)
+                current_role = str(row.get("role") or "user")
+                if desired_role != current_role:
+                    set_user_role(db_path, user_id, desired_role)
+
+                if desired_password:
+                    set_user_password(db_path, user_id, desired_password)
+
+                return html.Div("Changes saved.", style={"color": "#047857"})
+
+            return no_update
+        except ValueError as e:
+            return html.Div(str(e), style={"color": "#b91c1c"})
+        except Exception:
+            return html.Div("Admin action failed. Check inputs and try again.", style={"color": "#b91c1c"})

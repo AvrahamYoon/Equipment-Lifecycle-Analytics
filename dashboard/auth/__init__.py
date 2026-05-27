@@ -1,6 +1,17 @@
 """Authentication helpers for dashboard app."""
 
-from dashboard.auth.store import init_auth_db, resolve_auth_db_path, upsert_admin, verify_admin_credentials
+from dashboard.auth.store import (
+    init_auth_db,
+    resolve_auth_db_path,
+    upsert_admin,
+    upsert_user,
+    verify_admin_credentials,
+    verify_credentials,
+    list_users,
+    set_user_active,
+    set_user_password,
+    set_user_role,
+)
 from dashboard.auth.web import configure_auth
 
 __all__ = [
@@ -8,5 +19,11 @@ __all__ = [
     "init_auth_db",
     "resolve_auth_db_path",
     "upsert_admin",
+    "upsert_user",
     "verify_admin_credentials",
+    "verify_credentials",
+    "list_users",
+    "set_user_active",
+    "set_user_password",
+    "set_user_role",
 ]

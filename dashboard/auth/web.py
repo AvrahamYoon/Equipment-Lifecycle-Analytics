@@ -9,7 +9,7 @@ from urllib.parse import quote
 from dash import Dash
 from flask import redirect, request, session
 
-from dashboard.auth.store import init_auth_db, resolve_auth_db_path, verify_admin_credentials
+from dashboard.auth.store import init_auth_db, resolve_auth_db_path, verify_credentials
 
 _PUBLIC_PATH_PREFIXES = (
     "/login",
@@ -19,7 +19,7 @@ _PUBLIC_PATH_PREFIXES = (
 
 
 def _is_authenticated() -> bool:
-    return session.get("role") == "admin" and bool(session.get("user_id"))
+    return bool(session.get("user_id")) and bool(session.get("role"))
 
 
 def _is_public_path(path: str) -> bool:
@@ -101,7 +101,7 @@ def _login_html(error_msg: str = "") -> str:
   </head>
   <body>
     <form class="card" method="post" action="/login">
-      <h1>Admin login</h1>
+      <h1>Sign in</h1>
       <p class="muted">Sign in to access Equipment Lifecycle Analytics.</p>
       {"<p class='error'>" + safe_err + "</p>" if safe_err else ""}
       <label for="username">Username</label>
@@ -133,6 +133,8 @@ def configure_auth(app: Dash) -> None:
         if _is_public_path(path):
             return None
         if _is_authenticated():
+            if path.startswith("/admin") and session.get("role") != "admin":
+                return redirect("/")
             return None
         next_path = quote(path, safe="/?=&")
         return redirect(f"/login?next={next_path}")
@@ -145,7 +147,7 @@ def configure_auth(app: Dash) -> None:
         username = request.form.get("username", "")
         password = request.form.get("password", "")
         next_path = request.form.get("next", "/")
-        user = verify_admin_credentials(db_path, username, password)
+        user = verify_credentials(db_path, username, password)
         if user is None:
             return _login_html("Invalid username or password.")
 
