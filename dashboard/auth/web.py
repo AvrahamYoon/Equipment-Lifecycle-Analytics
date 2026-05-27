@@ -9,7 +9,12 @@ from urllib.parse import quote
 from dash import Dash
 from flask import redirect, request, session
 
-from dashboard.auth.store import init_auth_db, resolve_auth_db_path, verify_credentials
+from dashboard.auth.store import (
+    get_user_scopes,
+    init_auth_db,
+    resolve_auth_db_path,
+    verify_credentials,
+)
 
 _PUBLIC_PATH_PREFIXES = (
     "/login",
@@ -155,6 +160,9 @@ def configure_auth(app: Dash) -> None:
         session["user_id"] = user.id
         session["username"] = user.username
         session["role"] = user.role
+        scopes = get_user_scopes(db_path, user.id)
+        session["allowed_reports"] = scopes.get("reports", [])
+        session["allowed_buildings"] = scopes.get("buildings", [])
         if not str(next_path).startswith("/"):
             next_path = "/"
         return redirect(next_path)

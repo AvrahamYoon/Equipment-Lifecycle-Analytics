@@ -145,6 +145,27 @@ def admin_page_body():
                                 placeholder="Leave blank to keep password",
                                 style=inp,
                             ),
+                            html.Label("Visible reports", style=label),
+                            dcc.Checklist(
+                                id="admin-edit-reports",
+                                options=[
+                                    {"label": "Overview", "value": "overview"},
+                                    {"label": "Replacement", "value": "replacement"},
+                                    {"label": "Order roster", "value": "orders"},
+                                    {"label": "Settings", "value": "settings"},
+                                ],
+                                value=["overview", "replacement", "orders", "settings"],
+                                inline=False,
+                            ),
+                            html.Label("Allowed buildings (empty = all)", style=label),
+                            dcc.Dropdown(
+                                id="admin-edit-buildings",
+                                options=[],
+                                value=[],
+                                multi=True,
+                                placeholder="Select building/location values",
+                                style={"fontSize": 13},
+                            ),
                             html.Button(
                                 "Save changes",
                                 id="admin-save-user-btn",

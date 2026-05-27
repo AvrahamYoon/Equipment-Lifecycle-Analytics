@@ -5,8 +5,10 @@ from dash.exceptions import PreventUpdate
 
 from dashboard import constants as C
 from dashboard.auth import (
+    get_user_scopes,
     list_users,
     resolve_auth_db_path,
+    set_user_scopes,
     set_user_active,
     set_user_password,
     set_user_role,
@@ -24,6 +26,9 @@ from dashboard.logic.repair_orders_table import build_repair_orders_table, repai
 from dashboard.logic.replacement_table import build_replacement_table
 
 from flask import session as flask_session
+
+
+_REPORT_KEYS = ("overview", "replacement", "orders", "settings")
 
 
 def _format_row_count(filtered: int, total: int, item_singular: str):
@@ -45,6 +50,35 @@ def _format_row_count(filtered: int, total: int, item_singular: str):
 def _empty_state_style(visible: bool) -> dict:
     """Toggle the ``.empty-state`` panel's display without losing its CSS rules."""
     return {"display": "flex"} if visible else {"display": "none"}
+
+
+def _allowed_reports_for_session() -> set[str]:
+    role = str(flask_session.get("role") or "")
+    if role == "admin":
+        return set(_REPORT_KEYS)
+    if "allowed_reports" not in flask_session:
+        return set(_REPORT_KEYS)
+    values = flask_session.get("allowed_reports") or []
+    return {str(v).strip().lower() for v in values if str(v).strip()}
+
+
+def _apply_building_scope(df):
+    allowed = [str(v).strip() for v in (flask_session.get("allowed_buildings") or []) if str(v).strip()]
+    if not allowed:
+        return df
+    for col in ("location", "Location", "building", "Building", "site", "Site"):
+        if col in df.columns:
+            return df[df[col].astype(str).isin(allowed)]
+    return df
+
+
+def _building_options_from_data() -> list[dict]:
+    vals: set[str] = set()
+    for df in (df_repairs, df_service, df_req):
+        for col in ("location", "Location", "building", "Building", "site", "Site"):
+            if col in df.columns:
+                vals.update(str(v).strip() for v in df[col].dropna().tolist() if str(v).strip())
+    return [{"label": v, "value": v} for v in sorted(vals)]
 
 
 def register_callbacks(app):
@@ -69,6 +103,11 @@ def register_callbacks(app):
         on_set = pathname == "/settings"
         on_admin = pathname == "/admin"
         role = str(flask_session.get("role") or "")
+        allowed_reports = _allowed_reports_for_session()
+        can_overview = "overview" in allowed_reports
+        can_replacement = "replacement" in allowed_reports
+        can_orders = "orders" in allowed_reports
+        can_settings = "settings" in allowed_reports
         # Keep each page's intended outer spacing. The corresponding page
         # bodies in `dashboard/layouts/shell.py` already define padding and
         # maxWidth, but this callback overwrites the full `style` dict.
@@ -100,16 +139,26 @@ def register_callbacks(app):
             }
 
         ov = not on_rep and not on_ord and not on_set and not on_admin
+        if ov and not can_overview:
+            if can_replacement:
+                on_rep = True
+                ov = False
+            elif can_orders:
+                on_ord = True
+                ov = False
+            elif can_settings:
+                on_set = True
+                ov = False
         return (
-            {**page_overview, "display": "block" if ov else "none"},
-            {**page_replacement, "display": "block" if on_rep else "none"},
-            {**page_orders, "display": "block" if on_ord else "none"},
-            {**page_settings, "display": "block" if on_set else "none"},
+            {**page_overview, "display": "block" if ov and can_overview else "none"},
+            {**page_replacement, "display": "block" if on_rep and can_replacement else "none"},
+            {**page_orders, "display": "block" if on_ord and can_orders else "none"},
+            {**page_settings, "display": "block" if on_set and can_settings else "none"},
             {**page_admin, "display": "block" if on_admin and role == "admin" else "none"},
-            nav_item(ov),
-            nav_item(on_rep),
-            nav_item(on_ord),
-            nav_item(on_set),
+            ({**nav_item(ov), "display": "block"} if can_overview else {"display": "none"}),
+            ({**nav_item(on_rep), "display": "block"} if can_replacement else {"display": "none"}),
+            ({**nav_item(on_ord), "display": "block"} if can_orders else {"display": "none"}),
+            ({**nav_item(on_set), "display": "block"} if can_settings else {"display": "none"}),
             ({**nav_item(on_admin), "display": "block"} if role == "admin" else {"display": "none"}),
         )
 
@@ -135,6 +184,9 @@ def register_callbacks(app):
             req = df_req[df_req["month_key"] == month_key]
             svc = df_service[df_service["month_key"] == month_key]
             rep = df_repairs[df_repairs["month_key"] == month_key]
+        req = _apply_building_scope(req)
+        svc = _apply_building_scope(svc)
+        rep = _apply_building_scope(rep)
         return build_overview(month_key, req, svc, rep, df_equip, settings_data)
 
     @app.callback(
@@ -160,6 +212,7 @@ def register_callbacks(app):
         # Replacement is always **cumulative**: every repair row from every
         # loaded month (header month scope applies only to Overview & Order roster).
         rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
+        rep = _apply_building_scope(rep)
         rep_filters = {
             "status": rep_status or "All",
             "equipment_substr": rep_equip or "",
@@ -207,6 +260,7 @@ def register_callbacks(app):
             svc = df_service[df_service["month_key"].astype(str) != "NaT"]
         else:
             svc = df_service[df_service["month_key"] == month_key]
+        svc = _apply_building_scope(svc)
         order_filters = {
             "category": order_cat or "",
             "status_substr": order_status or "",
@@ -433,13 +487,14 @@ def register_callbacks(app):
         Output("admin-users-table", "data"),
         Output("admin-users-table", "columns"),
         Output("admin-users-table", "style_data_conditional"),
+        Output("admin-edit-buildings", "options"),
         Input("url", "pathname"),
         Input("admin-add-user-btn", "n_clicks"),
         Input("admin-save-user-btn", "n_clicks"),
     )
     def load_admin_users(pathname, _add_clicks, _save_clicks):
         if pathname != "/admin":
-            return no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update
         db_path = resolve_auth_db_path()
         users = list_users(db_path)
         columns = [
@@ -460,25 +515,31 @@ def register_callbacks(app):
                     "fontWeight": 700,
                 }
             )
-        return users, columns, style_data_conditional
+        return users, columns, style_data_conditional, _building_options_from_data()
 
     @app.callback(
         Output("admin-edit-active", "value"),
         Output("admin-edit-role", "value"),
         Output("admin-edit-password", "value"),
+        Output("admin-edit-reports", "value"),
+        Output("admin-edit-buildings", "value"),
         Input("admin-users-table", "selected_rows"),
         State("admin-users-table", "data"),
     )
     def sync_admin_edit_fields(selected_rows, table_data):
         if not selected_rows or not table_data:
-            return 1, "user", ""
+            return 1, "user", "", list(_REPORT_KEYS), []
         idx = selected_rows[0]
         if idx is None or idx >= len(table_data):
-            return 1, "user", ""
+            return 1, "user", "", list(_REPORT_KEYS), []
         row = table_data[idx]
         active = 1 if bool(row.get("is_active")) else 0
         role = str(row.get("role") or "user")
-        return active, role, ""
+        db_path = resolve_auth_db_path()
+        scopes = get_user_scopes(db_path, int(row.get("id")))
+        reports = scopes.get("reports") or list(_REPORT_KEYS)
+        buildings = scopes.get("buildings") or []
+        return active, role, "", reports, buildings
 
     @app.callback(
         Output("admin-message", "children"),
@@ -493,6 +554,8 @@ def register_callbacks(app):
         State("admin-edit-active", "value"),
         State("admin-edit-role", "value"),
         State("admin-edit-password", "value"),
+        State("admin-edit-reports", "value"),
+        State("admin-edit-buildings", "value"),
     )
     def handle_admin_actions(
         add_clicks,
@@ -506,6 +569,8 @@ def register_callbacks(app):
         edit_active,
         edit_role,
         edit_password,
+        edit_reports,
+        edit_buildings,
     ):
         triggered = [t["prop_id"] for t in callback_context.triggered if t["prop_id"] != "."]
         if not triggered:
@@ -552,6 +617,7 @@ def register_callbacks(app):
 
                 if desired_password:
                     set_user_password(db_path, user_id, desired_password)
+                set_user_scopes(db_path, user_id, edit_reports or [], edit_buildings or [])
 
                 return html.Div("Changes saved.", style={"color": "#047857"})
 

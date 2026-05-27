@@ -11,6 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 DEFAULT_AUTH_DB = os.path.join("data", "auth", "users.db")
 VALID_ROLES = ("admin", "co-admin", "user")
+VALID_REPORTS = ("overview", "replacement", "orders", "settings")
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,26 @@ def init_auth_db(db_path: str) -> None:
                 is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0,1)),
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 last_login_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_report_scope (
+                user_id INTEGER NOT NULL,
+                report_key TEXT NOT NULL CHECK(report_key IN ('overview','replacement','orders','settings')),
+                PRIMARY KEY (user_id, report_key),
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_building_scope (
+                user_id INTEGER NOT NULL,
+                building_key TEXT NOT NULL,
+                PRIMARY KEY (user_id, building_key),
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             )
             """
         )
@@ -259,3 +280,52 @@ def verify_credentials(db_path: str, username: str, password: str) -> AuthUser |
 def verify_admin_credentials(db_path: str, username: str, password: str) -> AuthUser | None:
     """Backward-compatible alias."""
     return verify_credentials(db_path, username, password)
+
+
+def get_user_scopes(db_path: str, user_id: int) -> dict:
+    user_id = int(user_id)
+    with _connect(db_path) as conn:
+        report_rows = conn.execute(
+            "SELECT report_key FROM user_report_scope WHERE user_id = ? ORDER BY report_key ASC",
+            (user_id,),
+        ).fetchall()
+        building_rows = conn.execute(
+            "SELECT building_key FROM user_building_scope WHERE user_id = ? ORDER BY building_key ASC",
+            (user_id,),
+        ).fetchall()
+    reports = [str(r["report_key"]) for r in report_rows]
+    if not reports:
+        reports = list(VALID_REPORTS)
+    return {
+        "reports": reports,
+        "buildings": [str(r["building_key"]) for r in building_rows],
+    }
+
+
+def set_user_scopes(db_path: str, user_id: int, reports: list[str], buildings: list[str]) -> None:
+    user_id = int(user_id)
+    report_values = sorted(
+        {
+            str(v).strip().lower()
+            for v in (reports or [])
+            if str(v).strip().lower() in VALID_REPORTS
+        }
+    )
+    building_values = sorted({str(v).strip() for v in (buildings or []) if str(v).strip()})
+    with _connect(db_path) as conn:
+        row = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        if row is None:
+            raise ValueError("user not found")
+        conn.execute("DELETE FROM user_report_scope WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM user_building_scope WHERE user_id = ?", (user_id,))
+        for key in report_values:
+            conn.execute(
+                "INSERT INTO user_report_scope (user_id, report_key) VALUES (?, ?)",
+                (user_id, key),
+            )
+        for key in building_values:
+            conn.execute(
+                "INSERT INTO user_building_scope (user_id, building_key) VALUES (?, ?)",
+                (user_id, key),
+            )
+        conn.commit()
