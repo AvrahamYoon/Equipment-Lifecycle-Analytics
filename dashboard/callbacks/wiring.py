@@ -188,6 +188,7 @@ def register_callbacks(app):
         Output("annual-parts-budget-chart", "figure"),
         Output("annual-parts-budget-wrap", "style"),
         Output("repair-count-mix-chart", "figure"),
+        Output("repair-count-mix-wrap", "style"),
         Output("building-hours-chart", "figure"),
         Input("month-select", "value"),
         Input("settings-store", "data"),
@@ -209,18 +210,13 @@ def register_callbacks(app):
         rep = _apply_building_scope(rep)
         out = build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
         primary_budget, secondary_budget = out[9], out[10]
-        annual_wrap = {
-            **C.CARD_STYLE,
-            "gridColumn": "span 1",
-            "padding": "16px 8px 8px",
-            "display": "none",
-        }
-        if not all_months:
-            annual_wrap["display"] = "block"
+        _square = {**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"}
+        annual_wrap = {**_square, "display": "none" if all_months else "block"}
+        repair_wrap = {**_square, "display": "block" if all_months else "none"}
         annual_fig = (
             secondary_budget if secondary_budget is not None else build_hidden_chart_placeholder()
         )
-        return (*out[:9], primary_budget, annual_fig, annual_wrap, *out[11:])
+        return (*out[:9], primary_budget, annual_fig, annual_wrap, out[11], repair_wrap, out[12])
 
     @app.callback(
         Output("replace-table", "columns"),
