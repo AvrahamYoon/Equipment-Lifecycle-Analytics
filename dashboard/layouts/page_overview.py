@@ -60,6 +60,7 @@ def overview_page_body():
                                 style={"height": 280},
                             ),
                         ],
+                        id="annual-parts-budget-wrap",
                         className="lift-on-hover",
                         style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
                     ),
@@ -79,14 +80,19 @@ def overview_page_body():
                             dcc.Graph(
                                 id="building-hours-chart",
                                 config={"displayModeBar": False, "responsive": True},
-                                style={"height": 280},
+                                style={"height": 300},
                             ),
                         ],
                         className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
+                        style={**C.CARD_STYLE, "gridColumn": "span 3", "padding": "16px 12px 8px"},
                     ),
                 ],
-                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
+                style={
+                    "display": "grid",
+                    "gridTemplateColumns": "repeat(6, 1fr)",
+                    "gap": 16,
+                    "marginBottom": 20,
+                },
             ),
             html.Div(
                 [

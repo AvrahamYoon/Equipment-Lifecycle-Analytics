@@ -133,20 +133,16 @@ def build_overview(
 
     monthly_budget = float(s["monthlyPartsBudget"])
     annual_budget = float(s["annualPartsBudget"])
-    months_set = _months_in_data(rep)
     years_set = _years_in_data(rep_full if not rep_full.empty else rep)
 
     if all_months_mode:
-        n_mo = max(len(months_set), 1)
-        mo_spent = _parts_spend(rep)
-        mo_cap = monthly_budget * n_mo
-        mo_note = f"{n_mo} months · ${mo_spent:,.0f} / ${mo_cap:,.0f}"
-        mo_title = "Monthly parts budget (all loaded months)"
         n_yr = max(len(years_set), 1)
         yr_spent = _parts_spend(rep_full)
         yr_cap = annual_budget * n_yr
         yr_note = f"{n_yr} yr(s) · ${yr_spent:,.0f} / ${yr_cap:,.0f}"
         yr_title = "Annual parts budget (all loaded months)"
+        primary_budget_fig = build_parts_budget_donut_figure(yr_spent, yr_cap, yr_title, yr_note)
+        secondary_budget_fig = None
     else:
         mo_spent = _parts_spend(rep)
         mo_cap = monthly_budget
@@ -159,9 +155,8 @@ def build_overview(
         yr_cap = annual_budget
         yr_note = f"{yr} · ${yr_spent:,.0f} / ${yr_cap:,.0f}"
         yr_title = "Annual parts budget"
-
-    monthly_budget_fig = build_parts_budget_donut_figure(mo_spent, mo_cap, mo_title, mo_note)
-    annual_budget_fig = build_parts_budget_donut_figure(yr_spent, yr_cap, yr_title, yr_note)
+        primary_budget_fig = build_parts_budget_donut_figure(mo_spent, mo_cap, mo_title, mo_note)
+        secondary_budget_fig = build_parts_budget_donut_figure(yr_spent, yr_cap, yr_title, yr_note)
     repair_count_fig = build_repair_count_distribution_figure(rep)
     building_hours_fig = build_repair_hours_by_building_figure(rep)
 
@@ -175,8 +170,8 @@ def build_overview(
         turnaround_fig,
         avail_fig,
         footer,
-        monthly_budget_fig,
-        annual_budget_fig,
+        primary_budget_fig,
+        secondary_budget_fig,
         repair_count_fig,
         building_hours_fig,
     )

@@ -239,8 +239,20 @@ def build_repair_hours_by_building_figure(rep: pd.DataFrame) -> go.Figure:
             showline=False,
             title=dict(text="Hours", font=dict(size=11, color=C.COLOR_TEXT_MUTED)),
         ),
-        margin=dict(l=10, r=12, t=48, b=72),
+        margin=dict(l=10, r=24, t=48, b=72),
         bargap=0.35,
+        height=300,
+    )
+    return fig
+
+
+def build_hidden_chart_placeholder() -> go.Figure:
+    """Minimal figure for a graph slot hidden via layout style."""
+    fig = go.Figure()
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0, r=0, t=0, b=0),
         height=280,
     )
     return fig

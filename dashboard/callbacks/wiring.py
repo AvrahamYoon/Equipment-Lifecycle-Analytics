@@ -21,6 +21,7 @@ from dashboard.data_loaders import (
     df_service,
 )
 from dashboard.logic.overview import build_overview
+from dashboard.logic.overview.figures import build_hidden_chart_placeholder
 from dashboard.logic.buildings import normalize_building_value
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
@@ -185,6 +186,7 @@ def register_callbacks(app):
         Output("footer-text", "children"),
         Output("monthly-parts-budget-chart", "figure"),
         Output("annual-parts-budget-chart", "figure"),
+        Output("annual-parts-budget-wrap", "style"),
         Output("repair-count-mix-chart", "figure"),
         Output("building-hours-chart", "figure"),
         Input("month-select", "value"),
@@ -193,7 +195,8 @@ def register_callbacks(app):
     def update_overview(month_key, settings_data):
         rep_all = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
         rep_all = _apply_building_scope(rep_all)
-        if C.is_all_months(month_key):
+        all_months = C.is_all_months(month_key)
+        if all_months:
             req = df_req[df_req["month_key"].astype(str) != "NaT"]
             svc = df_service[df_service["month_key"].astype(str) != "NaT"]
             rep = rep_all
@@ -204,7 +207,20 @@ def register_callbacks(app):
         req = _apply_building_scope(req)
         svc = _apply_building_scope(svc)
         rep = _apply_building_scope(rep)
-        return build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
+        out = build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
+        primary_budget, secondary_budget = out[9], out[10]
+        annual_wrap = {
+            **C.CARD_STYLE,
+            "gridColumn": "span 1",
+            "padding": "16px 8px 8px",
+            "display": "none",
+        }
+        if not all_months:
+            annual_wrap["display"] = "block"
+        annual_fig = (
+            secondary_budget if secondary_budget is not None else build_hidden_chart_placeholder()
+        )
+        return (*out[:9], primary_budget, annual_fig, annual_wrap, *out[11:])
 
     @app.callback(
         Output("replace-table", "columns"),
