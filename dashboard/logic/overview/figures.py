@@ -6,7 +6,244 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from dashboard import constants as C
+from dashboard.logic.buildings import normalize_building_value
 from dashboard.taxonomy import chart_category_rank, equipment_chart_class
+
+
+def _parts_spend(rep: pd.DataFrame) -> float:
+    if rep is None or rep.empty or "parts" not in rep.columns:
+        return 0.0
+    return float(rep["parts"].sum())
+
+
+def _building_series(rep: pd.DataFrame) -> pd.Series:
+    for col in ("location", "Location", "building", "Building", "site", "Site"):
+        if col in rep.columns:
+            normed = rep[col].map(normalize_building_value)
+            return normed.where(normed.astype(str).str.strip() != "", "Unknown")
+    if rep.empty:
+        return pd.Series(dtype=str)
+    return pd.Series(["Unknown"] * len(rep), index=rep.index)
+
+
+def build_parts_budget_donut_figure(
+    spent: float,
+    budget: float,
+    title: str,
+    scope_note: str = "",
+) -> go.Figure:
+    """Hollow ring: parts spend vs budget (remaining = budget available)."""
+    budget = max(float(budget), 0.01)
+    spent = max(float(spent), 0.0)
+    available = max(budget - spent, 0.0)
+    avail_pct = min(available / budget * 100.0, 100.0)
+    over = spent > budget
+
+    used_color = "#ef4444" if over else C.C_ORANGE
+    fig = go.Figure(
+        go.Pie(
+            labels=["Spent", "Available"],
+            values=[min(spent, budget), available] if not over else [budget, 0.01],
+            hole=0.62,
+            marker=dict(colors=[used_color, "#e2e8f0"], line=dict(color="white", width=2)),
+            textinfo="none",
+            hovertemplate="%{label}: $%{value:,.0f}<extra></extra>",
+            sort=False,
+            direction="clockwise",
+        )
+    )
+    center = f"{avail_pct:.0f}%<br><span style='font-size:11px'>available</span>"
+    if over:
+        center = f"{spent / budget * 100:.0f}%<br><span style='font-size:11px'>of budget</span>"
+    subtitle = scope_note or f"${spent:,.0f} / ${budget:,.0f}"
+    fig.update_layout(
+        title=dict(
+            text=f"{title}<br><sup style='color:{C.COLOR_TEXT_MUTED}'>{subtitle}</sup>",
+            font=dict(
+                color=C.COLOR_TEXT_PRIMARY,
+                size=13,
+                family="'DM Sans','Segoe UI',sans-serif",
+            ),
+            x=0.5,
+            xanchor="center",
+        ),
+        annotations=[
+            dict(
+                text=center,
+                x=0.5,
+                y=0.5,
+                font=dict(
+                    size=18,
+                    color=C.COLOR_TEXT_PRIMARY,
+                    family="'DM Sans','Segoe UI',sans-serif",
+                ),
+                showarrow=False,
+            )
+        ],
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.12,
+            x=0.5,
+            xanchor="center",
+            font=dict(size=10, color=C.COLOR_TEXT_SECONDARY),
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=20, r=20, t=56, b=36),
+        height=280,
+    )
+    return fig
+
+
+def build_repair_count_distribution_figure(rep: pd.DataFrame) -> go.Figure:
+    """Hollow ring: share of equipment by how many repairs in scope."""
+    id_col = "equipIdNorm" if "equipIdNorm" in rep.columns else "equipId"
+    if rep.empty or id_col not in rep.columns:
+        fig = go.Figure()
+        fig.update_layout(
+            title=dict(text="Repair count mix — no repair rows", font=dict(size=13), x=0.5, xanchor="center"),
+            paper_bgcolor="rgba(0,0,0,0)",
+            height=280,
+        )
+        return fig
+
+    counts = rep.groupby(id_col, dropna=True).size()
+    counts = counts[counts.index.astype(str).str.strip() != ""]
+    if counts.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title=dict(text="Repair count mix — no equipment ids", font=dict(size=13), x=0.5, xanchor="center"),
+            paper_bgcolor="rgba(0,0,0,0)",
+            height=280,
+        )
+        return fig
+
+    def _bin(n: int) -> str:
+        if n <= 1:
+            return "1 repair"
+        if n == 2:
+            return "2 repairs"
+        if n == 3:
+            return "3 repairs"
+        if n == 4:
+            return "4 repairs"
+        return "5+ repairs"
+
+    bins = counts.map(_bin).value_counts()
+    order = ["1 repair", "2 repairs", "3 repairs", "4 repairs", "5+ repairs"]
+    labels = [b for b in order if b in bins.index]
+    values = [int(bins[b]) for b in labels]
+    _pal = [C.C_BLUE, C.C_PURPLE, C.C_GREEN, C.C_ORANGE, C.C_YELLOW]
+
+    fig = go.Figure(
+        go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.62,
+            marker=dict(
+                colors=[_pal[i % len(_pal)] for i in range(len(labels))],
+                line=dict(color="white", width=2),
+            ),
+            textinfo="percent+label",
+            textposition="outside",
+            textfont=dict(size=10, color=C.COLOR_TEXT_SECONDARY),
+            hovertemplate="%{label}: %{value} units (%{percent})<extra></extra>",
+        )
+    )
+    total_units = sum(values)
+    fig.update_layout(
+        title=dict(
+            text=f"Equipment by repair count<br><sup style='color:{C.COLOR_TEXT_MUTED}'>{total_units} units in scope</sup>",
+            font=dict(
+                color=C.COLOR_TEXT_PRIMARY,
+                size=13,
+                family="'DM Sans','Segoe UI',sans-serif",
+            ),
+            x=0.5,
+            xanchor="center",
+        ),
+        showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=10, r=10, t=56, b=20),
+        height=280,
+    )
+    return fig
+
+
+def build_repair_hours_by_building_figure(rep: pd.DataFrame) -> go.Figure:
+    """Vertical bars: repair hours summed by building (normalized)."""
+    if rep.empty or "hours" not in rep.columns:
+        fig = go.Figure()
+        fig.update_layout(
+            title=dict(text="Repair hours by building — no data", font=dict(size=14), x=0.02),
+            paper_bgcolor="rgba(0,0,0,0)",
+            height=280,
+        )
+        return fig
+
+    buildings = _building_series(rep)
+    tmp = rep.copy()
+    tmp["_bld"] = buildings
+    hours_map = tmp.groupby("_bld", dropna=False)["hours"].sum().to_dict()
+    hours_map = {k: v for k, v in hours_map.items() if str(k).strip()}
+    if not hours_map:
+        fig = go.Figure()
+        fig.update_layout(
+            title=dict(text="Repair hours by building — no location data", font=dict(size=14), x=0.02),
+            paper_bgcolor="rgba(0,0,0,0)",
+            height=280,
+        )
+        return fig
+
+    names = sorted(hours_map.keys(), key=lambda k: (-hours_map[k], k))
+    hours = [hours_map[n] for n in names]
+    _pal = [C.C_BLUE, C.C_PURPLE, C.C_GREEN, C.C_ORANGE, C.C_YELLOW, C.C_PINK, "#06b6d4", "#6366f1"]
+    bar_colors = [_pal[i % len(_pal)] for i in range(len(names))]
+
+    fig = go.Figure(
+        go.Bar(
+            x=names,
+            y=hours,
+            marker=dict(color=bar_colors, opacity=0.85, line=dict(width=0)),
+            text=[f"{h:.1f}" for h in hours],
+            textposition="outside",
+            textfont=dict(size=11, color=C.COLOR_TEXT_SECONDARY),
+            cliponaxis=False,
+        )
+    )
+    fig.update_layout(
+        title=dict(
+            text="Repair Hours by Building",
+            font=dict(
+                color=C.COLOR_TEXT_PRIMARY,
+                size=14,
+                family="'DM Sans','Segoe UI',sans-serif",
+            ),
+            x=0.02,
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=C.CHART_FONT,
+        xaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            tickangle=-30,
+            tickfont=dict(color=C.COLOR_TEXT_SECONDARY, size=10),
+        ),
+        yaxis=dict(
+            gridcolor=C.COLOR_BORDER,
+            zeroline=False,
+            showline=False,
+            title=dict(text="Hours", font=dict(size=11, color=C.COLOR_TEXT_MUTED)),
+        ),
+        margin=dict(l=10, r=12, t=48, b=72),
+        bargap=0.35,
+        height=280,
+    )
+    return fig
 
 
 def build_repair_hours_figure(rep: pd.DataFrame) -> go.Figure:

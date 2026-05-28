@@ -44,6 +44,55 @@ def overview_page_body():
                     html.Div(
                         [
                             dcc.Graph(
+                                id="monthly-parts-budget-chart",
+                                config={"displayModeBar": False, "responsive": True},
+                                style={"height": 280},
+                            ),
+                        ],
+                        className="lift-on-hover",
+                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
+                    ),
+                    html.Div(
+                        [
+                            dcc.Graph(
+                                id="annual-parts-budget-chart",
+                                config={"displayModeBar": False, "responsive": True},
+                                style={"height": 280},
+                            ),
+                        ],
+                        className="lift-on-hover",
+                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
+                    ),
+                    html.Div(
+                        [
+                            dcc.Graph(
+                                id="repair-count-mix-chart",
+                                config={"displayModeBar": False, "responsive": True},
+                                style={"height": 280},
+                            ),
+                        ],
+                        className="lift-on-hover",
+                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
+                    ),
+                    html.Div(
+                        [
+                            dcc.Graph(
+                                id="building-hours-chart",
+                                config={"displayModeBar": False, "responsive": True},
+                                style={"height": 280},
+                            ),
+                        ],
+                        className="lift-on-hover",
+                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
+                    ),
+                ],
+                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            dcc.Graph(
                                 id="completion-gauge",
                                 config={"displayModeBar": False, "responsive": True},
                                 style={"height": 260},

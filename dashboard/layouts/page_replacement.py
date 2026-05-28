@@ -196,6 +196,7 @@ def replacement_page_body():
         },
         {"if": {"column_id": "Equipment"}, "minWidth": 200, "maxWidth": 300},
         {"if": {"column_id": "ID"}, "minWidth": 128, "maxWidth": 180},
+        {"if": {"column_id": "Building"}, "minWidth": 150, "maxWidth": 220},
         {
             "if": {"column_id": "Price basis"},
             "minWidth": 118,

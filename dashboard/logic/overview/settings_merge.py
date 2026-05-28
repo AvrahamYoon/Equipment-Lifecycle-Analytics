@@ -129,6 +129,8 @@ def merge_app_settings(raw) -> dict:
     out["hoursPerDay"] = _float("hoursPerDay", 0.25, 24.0, float(d["hoursPerDay"]))
     out["workDays"] = _int("workDays", 1, 31, d["workDays"])
     out["baseAvailDays"] = _int("baseAvailDays", 1, 3660, d["baseAvailDays"])
+    out["monthlyPartsBudget"] = _int("monthlyPartsBudget", 1, 10_000_000, d["monthlyPartsBudget"])
+    out["annualPartsBudget"] = _int("annualPartsBudget", 1, 100_000_000, d["annualPartsBudget"])
     wk = str(raw.get("weekStartsOn", d["weekStartsOn"])).lower()
     out["weekStartsOn"] = "monday" if wk == "monday" else "sunday"
 

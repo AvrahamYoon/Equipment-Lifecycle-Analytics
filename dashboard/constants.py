@@ -14,6 +14,8 @@ BASE_AVAIL_DAYS = 311
 DEFAULT_STAFF_COUNT = 4
 DEFAULT_HOURS_PER_STAFF_DAY = 4
 DEFAULT_WORK_DAYS_PER_MONTH = 20
+DEFAULT_MONTHLY_PARTS_BUDGET = 1000
+DEFAULT_ANNUAL_PARTS_BUDGET = DEFAULT_MONTHLY_PARTS_BUDGET * 12
 
 # Sentinel value used in the month dropdown to mean "aggregate across every
 # month loaded into the dashboard"; treated specially by callbacks and figure
@@ -81,6 +83,8 @@ def default_app_settings():
         "iconReplaceStatusGood": "🟢",
         # month_key (str) -> { staffCount, hoursPerDay, workDays }; months not listed use top-level defaults
         "staffCapacityByMonth": {},
+        "monthlyPartsBudget": DEFAULT_MONTHLY_PARTS_BUDGET,
+        "annualPartsBudget": DEFAULT_ANNUAL_PARTS_BUDGET,
     }
 
 

@@ -3,6 +3,7 @@
 import pandas as pd
 
 from dashboard.calendar_util import business_days_inclusive
+from dashboard.logic.buildings import normalize_building_value
 from dashboard.taxonomy import filter_equip_id_substr, norm_equip_id
 
 
@@ -28,6 +29,7 @@ def build_repair_orders_table(svc: pd.DataFrame, filters: dict | None = None):
     cols = [
         {"name": "Equipment", "id": "Equipment"},
         {"name": "Equipment ID", "id": "Equipment ID"},
+        {"name": "Building", "id": "Building"},
         {"name": "Category", "id": "Category"},
         {"name": "Status", "id": "Status"},
         {"name": "Start (scheduled)", "id": "Start (scheduled)"},
@@ -43,6 +45,7 @@ def build_repair_orders_table(svc: pd.DataFrame, filters: dict | None = None):
     sched_col = _pick_col(df, ("Sched. Date", "Sched Date", "Scheduled Date"))
     done_col = _pick_col(df, ("Completed Date", "Completed date", "Completion Date"))
     status_col = _pick_col(df, ("Status", "status"))
+    building_col = _pick_col(df, ("location", "Location", "building", "Building", "site", "Site"))
 
     if "equipCategory" not in df.columns:
         df["equipCategory"] = "Other"
@@ -63,11 +66,13 @@ def build_repair_orders_table(svc: pd.DataFrame, filters: dict | None = None):
         eid = norm_equip_id(raw_eid) if raw_eid != "" else ""
         cat = str(r.get("equipCategory", "") or "")
         st = str(r.get(status_col, "") or "").strip() if status_col else ""
+        building = normalize_building_value(r.get(building_col, "")) if building_col else ""
 
         rows_out.append(
             {
                 "Equipment": name,
                 "Equipment ID": eid,
+                "Building": building,
                 "Category": cat,
                 "Status": st,
                 "Start (scheduled)": _fmt_dt(sd) if sched_col else "",

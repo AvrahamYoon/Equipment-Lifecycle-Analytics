@@ -109,6 +109,39 @@ def settings_page_body():
                 ],
             ),
             section(
+                "Parts budget (Overview donuts)",
+                "Monthly and annual parts spend vs budget on the Overview page. Default monthly budget is $1,000; "
+                "annual defaults to $12,000 unless you change it here.",
+                [
+                    html.Div(
+                        [
+                            html.Label("Monthly parts budget ($)", style=label),
+                            dcc.Input(
+                                id="settings-monthly-parts-budget",
+                                type="number",
+                                min=1,
+                                step=100,
+                                value=_DEFAULTS["monthlyPartsBudget"],
+                                style=inp,
+                            ),
+                        ]
+                    ),
+                    html.Div(
+                        [
+                            html.Label("Annual parts budget ($)", style=label),
+                            dcc.Input(
+                                id="settings-annual-parts-budget",
+                                type="number",
+                                min=1,
+                                step=500,
+                                value=_DEFAULTS["annualPartsBudget"],
+                                style=inp,
+                            ),
+                        ]
+                    ),
+                ],
+            ),
+            section(
                 "Availability model (Overview)",
                 "Overview only — base period (days) caps downtime per asset when computing the availability % chart.",
                 [

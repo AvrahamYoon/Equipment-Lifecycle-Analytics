@@ -21,6 +21,7 @@ from dashboard.data_loaders import (
     df_service,
 )
 from dashboard.logic.overview import build_overview
+from dashboard.logic.buildings import normalize_building_value
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
 from dashboard.logic.replacement_table import build_replacement_table
@@ -62,13 +63,23 @@ def _allowed_reports_for_session() -> set[str]:
     return {str(v).strip().lower() for v in values if str(v).strip()}
 
 
+def _normalize_building_scope(values) -> set[str]:
+    out: set[str] = set()
+    for v in values or []:
+        nv = normalize_building_value(v)
+        if nv:
+            out.add(nv)
+    return out
+
+
 def _apply_building_scope(df):
-    allowed = [str(v).strip() for v in (flask_session.get("allowed_buildings") or []) if str(v).strip()]
+    allowed = _normalize_building_scope(flask_session.get("allowed_buildings") or [])
     if not allowed:
         return df
     for col in ("location", "Location", "building", "Building", "site", "Site"):
         if col in df.columns:
-            return df[df[col].astype(str).isin(allowed)]
+            normalized = df[col].map(normalize_building_value)
+            return df[normalized.isin(allowed)]
     return df
 
 
@@ -77,7 +88,7 @@ def _building_options_from_data() -> list[dict]:
     for df in (df_repairs, df_service, df_req):
         for col in ("location", "Location", "building", "Building", "site", "Site"):
             if col in df.columns:
-                vals.update(str(v).strip() for v in df[col].dropna().tolist() if str(v).strip())
+                vals.update(_normalize_building_scope(df[col].dropna().tolist()))
     return [{"label": v, "value": v} for v in sorted(vals)]
 
 
@@ -172,14 +183,20 @@ def register_callbacks(app):
         Output("turnaround-chart", "figure"),
         Output("availability-chart", "figure"),
         Output("footer-text", "children"),
+        Output("monthly-parts-budget-chart", "figure"),
+        Output("annual-parts-budget-chart", "figure"),
+        Output("repair-count-mix-chart", "figure"),
+        Output("building-hours-chart", "figure"),
         Input("month-select", "value"),
         Input("settings-store", "data"),
     )
     def update_overview(month_key, settings_data):
+        rep_all = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
+        rep_all = _apply_building_scope(rep_all)
         if C.is_all_months(month_key):
             req = df_req[df_req["month_key"].astype(str) != "NaT"]
             svc = df_service[df_service["month_key"].astype(str) != "NaT"]
-            rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
+            rep = rep_all
         else:
             req = df_req[df_req["month_key"] == month_key]
             svc = df_service[df_service["month_key"] == month_key]
@@ -187,7 +204,7 @@ def register_callbacks(app):
         req = _apply_building_scope(req)
         svc = _apply_building_scope(svc)
         rep = _apply_building_scope(rep)
-        return build_overview(month_key, req, svc, rep, df_equip, settings_data)
+        return build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
 
     @app.callback(
         Output("replace-table", "columns"),
@@ -323,6 +340,8 @@ def register_callbacks(app):
         State("settings-hours-day", "value"),
         State("settings-work-days", "value"),
         State("settings-base-avail", "value"),
+        State("settings-monthly-parts-budget", "value"),
+        State("settings-annual-parts-budget", "value"),
         State("settings-week-starts", "value"),
         State("settings-iconKpiRequests", "value"),
         State("settings-iconKpiCompleted", "value"),
@@ -349,6 +368,8 @@ def register_callbacks(app):
         hours,
         days,
         base_avail,
+        monthly_parts_budget,
+        annual_parts_budget,
         week_val,
         ik_req,
         ik_comp,
@@ -391,6 +412,8 @@ def register_callbacks(app):
             "hoursPerDay": hd,
             "workDays": wd,
             "baseAvailDays": base_avail,
+            "monthlyPartsBudget": monthly_parts_budget,
+            "annualPartsBudget": annual_parts_budget,
             "weekStartsOn": week_val or "sunday",
             "iconKpiRequests": ik_req,
             "iconKpiCompleted": ik_comp,
@@ -415,6 +438,8 @@ def register_callbacks(app):
         Output("settings-hours-day", "value"),
         Output("settings-work-days", "value"),
         Output("settings-base-avail", "value"),
+        Output("settings-monthly-parts-budget", "value"),
+        Output("settings-annual-parts-budget", "value"),
         Output("settings-week-starts", "value"),
         Output("settings-iconKpiRequests", "value"),
         Output("settings-iconKpiCompleted", "value"),
@@ -446,6 +471,8 @@ def register_callbacks(app):
             hd,
             wd,
             m["baseAvailDays"],
+            m["monthlyPartsBudget"],
+            m["annualPartsBudget"],
             m["weekStartsOn"],
             m["iconKpiRequests"],
             m["iconKpiCompleted"],
@@ -617,7 +644,12 @@ def register_callbacks(app):
 
                 if desired_password:
                     set_user_password(db_path, user_id, desired_password)
-                set_user_scopes(db_path, user_id, edit_reports or [], edit_buildings or [])
+                set_user_scopes(
+                    db_path,
+                    user_id,
+                    edit_reports or [],
+                    sorted(_normalize_building_scope(edit_buildings or [])),
+                )
 
                 return html.Div("Changes saved.", style={"color": "#047857"})
 

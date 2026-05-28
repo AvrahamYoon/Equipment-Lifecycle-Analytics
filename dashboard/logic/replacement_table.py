@@ -8,6 +8,7 @@ import pandas as pd
 
 from dashboard import constants as C
 from dashboard.equipment_pricing import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
+from dashboard.logic.buildings import normalize_building_value
 
 _MARKDOWN_COLS = frozenset({"Status", PRICE_BASIS_COLUMN})
 
@@ -27,6 +28,13 @@ from dashboard.logic.overview.settings_merge import merge_app_settings
 from dashboard.taxonomy import ensure_equip_id_norm_column, filter_equip_id_substr
 
 
+def _pick_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
+
 def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     """Returns (columns, records, style_data_conditional) for Dash DataTable."""
     merge_app_settings(app_settings)
@@ -34,11 +42,17 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
 
     rep = ensure_equip_id_norm_column(rep, raw_col="equipId", norm_col="equipIdNorm")
     rep = rep[rep["equipIdNorm"].astype(str).str.len() > 0]
+    building_col = _pick_col(rep, ("location", "Location", "building", "Building", "site", "Site"))
+    if building_col:
+        rep["_building_norm"] = rep[building_col].map(normalize_building_value)
+    else:
+        rep["_building_norm"] = ""
     group_col = "equipIdNorm"
 
     agg_cols = {
         "equipment": ("equipment", "first"),
         "equipId": (group_col, "first"),
+        "building": ("_building_norm", "first"),
         "newPrice": ("newPrice", "first"),
         "parts": ("parts", "sum"),
         "labor": ("labor", "sum"),
@@ -80,6 +94,7 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         columns={
             "equipment": "Equipment",
             "equipId": "ID",
+            "building": "Building",
             "newPrice": "New Price",
             "priceSource": PRICE_BASIS_COLUMN,
             "parts": "Parts Cost",
@@ -90,6 +105,7 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
             "Status",
             "Equipment",
             "ID",
+            "Building",
             "Parts Cost",
             "Labor Cost",
             "Total Cost",

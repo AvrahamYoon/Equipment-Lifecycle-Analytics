@@ -144,6 +144,7 @@ def order_roster_page_body():
     order_cell_cond = [
         {"if": {"column_id": "Equipment"}, "minWidth": 180, "maxWidth": 260},
         {"if": {"column_id": "Equipment ID"}, "minWidth": 130, "maxWidth": 170, "color": C.COLOR_TEXT_SECONDARY},
+        {"if": {"column_id": "Building"}, "minWidth": 150, "maxWidth": 220},
         {"if": {"column_id": "Category"}, "minWidth": 150, "maxWidth": 200},
         {"if": {"column_id": "Status"}, "minWidth": 110, "maxWidth": 150, "fontWeight": 600},
         {"if": {"column_id": "Start (scheduled)"}, "minWidth": 130, "maxWidth": 150, "textAlign": "right"},
