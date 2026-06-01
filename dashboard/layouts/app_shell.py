@@ -60,6 +60,7 @@ def build_root_layout(month_options, default_month):
         [
             dcc.Location(id="url", refresh=False),
             dcc.Store(id="settings-store", storage_type="local", data=C.default_app_settings()),
+            dcc.Store(id="chart-drill-store", storage_type="memory"),
             html.Div(
                 [
                     html.Div(

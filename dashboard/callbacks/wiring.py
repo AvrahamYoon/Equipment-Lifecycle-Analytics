@@ -93,6 +93,20 @@ def _building_options_from_data() -> list[dict]:
     return [{"label": v, "value": v} for v in sorted(vals)]
 
 
+def _repair_category_options() -> list[dict]:
+    opts = [{"label": "All categories", "value": ""}]
+    if df_repairs.empty or "equipCategory" not in df_repairs.columns:
+        return opts
+    for c in sorted(df_repairs["equipCategory"].dropna().astype(str).unique()):
+        if c:
+            opts.append({"label": c, "value": c})
+    return opts
+
+
+def _replacement_building_options() -> list[dict]:
+    return [{"label": "All buildings", "value": ""}, *_building_options_from_data()]
+
+
 def register_callbacks(app):
     @app.callback(
         Output("page-overview", "style"),
@@ -219,6 +233,56 @@ def register_callbacks(app):
         return (*out[:9], primary_budget, annual_fig, annual_wrap, out[11], repair_wrap, out[12])
 
     @app.callback(
+        Output("url", "pathname"),
+        Output("chart-drill-store", "data"),
+        Input("hours-chart", "clickData"),
+        Input("building-hours-chart", "clickData"),
+        prevent_initial_call=True,
+    )
+    def drill_from_overview_charts(hours_click, building_click):
+        if "replacement" not in _allowed_reports_for_session():
+            raise PreventUpdate
+        triggered = callback_context.triggered_id
+        if triggered == "hours-chart":
+            click = hours_click
+            axis_key = "y"
+        elif triggered == "building-hours-chart":
+            click = building_click
+            axis_key = "x"
+        else:
+            raise PreventUpdate
+        if not click or not click.get("points"):
+            raise PreventUpdate
+        label = str(click["points"][0].get(axis_key) or "").strip()
+        if not label:
+            raise PreventUpdate
+        if triggered == "hours-chart":
+            return "/replacement", {"page": "replacement", "category": label, "building": ""}
+        return "/replacement", {"page": "replacement", "category": "", "building": label}
+
+    @app.callback(
+        Output("replace-filter-category", "value"),
+        Output("replace-filter-building", "value"),
+        Output("chart-drill-store", "data", allow_duplicate=True),
+        Input("chart-drill-store", "data"),
+        prevent_initial_call=True,
+    )
+    def apply_chart_drill_to_replacement(drill):
+        if not drill or drill.get("page") != "replacement":
+            raise PreventUpdate
+        return drill.get("category") or "", drill.get("building") or "", None
+
+    @app.callback(
+        Output("replace-filter-category", "options"),
+        Output("replace-filter-building", "options"),
+        Input("url", "pathname"),
+    )
+    def sync_replacement_filter_options(pathname):
+        if pathname != "/replacement":
+            raise PreventUpdate
+        return _repair_category_options(), _replacement_building_options()
+
+    @app.callback(
         Output("replace-table", "columns"),
         Output("replace-table", "data"),
         Output("replace-table", "style_data_conditional"),
@@ -227,6 +291,8 @@ def register_callbacks(app):
         Output("replace-empty-state", "style"),
         Input("settings-store", "data"),
         Input("replace-filter-status", "value"),
+        Input("replace-filter-category", "value"),
+        Input("replace-filter-building", "value"),
         Input("replace-filter-equipment", "value"),
         Input("replace-filter-id", "value"),
         Input("replace-page-size", "value"),
@@ -234,6 +300,8 @@ def register_callbacks(app):
     def update_replacement_table(
         settings_data,
         rep_status,
+        rep_category,
+        rep_building,
         rep_equip,
         rep_id,
         page_size_value,
@@ -244,6 +312,8 @@ def register_callbacks(app):
         rep = _apply_building_scope(rep)
         rep_filters = {
             "status": rep_status or "All",
+            "category": rep_category or "",
+            "building": rep_building or "",
             "equipment_substr": rep_equip or "",
             "id_substr": rep_id or "",
         }

@@ -25,7 +25,7 @@ _BASIS_PILL_HTML = {
 }
 
 from dashboard.logic.overview.settings_merge import merge_app_settings
-from dashboard.taxonomy import ensure_equip_id_norm_column, filter_equip_id_substr
+from dashboard.taxonomy import ensure_equip_id_norm_column, equipment_chart_class, filter_equip_id_substr
 
 
 def _pick_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
@@ -47,6 +47,18 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         rep["_building_norm"] = rep[building_col].map(normalize_building_value)
     else:
         rep["_building_norm"] = ""
+
+    cat_f = (filters.get("category") or "").strip()
+    if cat_f:
+        if "equipCategory" in rep.columns:
+            rep = rep[rep["equipCategory"].astype(str) == cat_f]
+        else:
+            rep = rep[rep["equipment"].astype(str).map(equipment_chart_class) == cat_f]
+
+    bld_f = (filters.get("building") or "").strip()
+    if bld_f:
+        rep = rep[rep["_building_norm"].astype(str) == bld_f]
+
     group_col = "equipIdNorm"
 
     agg_cols = {

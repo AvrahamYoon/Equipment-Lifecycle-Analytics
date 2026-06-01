@@ -131,6 +131,32 @@ def replacement_page_body():
             [
                 html.Div(
                     [
+                        html.Label("Equipment class", **flabel),
+                        dcc.Dropdown(
+                            id="replace-filter-category",
+                            options=[{"label": "All categories", "value": ""}],
+                            value="",
+                            clearable=False,
+                            style={"minWidth": 200, "fontFamily": "inherit", "fontSize": 13},
+                        ),
+                    ],
+                    style={"minWidth": 200},
+                ),
+                html.Div(
+                    [
+                        html.Label("Building", **flabel),
+                        dcc.Dropdown(
+                            id="replace-filter-building",
+                            options=[{"label": "All buildings", "value": ""}],
+                            value="",
+                            clearable=False,
+                            style={"minWidth": 200, "fontFamily": "inherit", "fontSize": 13},
+                        ),
+                    ],
+                    style={"minWidth": 200},
+                ),
+                html.Div(
+                    [
                         html.Label("Status", **flabel),
                         dcc.Dropdown(
                             id="replace-filter-status",

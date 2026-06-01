@@ -215,7 +215,7 @@ def build_repair_hours_by_building_figure(rep: pd.DataFrame) -> go.Figure:
     )
     fig.update_layout(
         title=dict(
-            text="Repair Hours by Building",
+            text="Repair Hours by Building<br><sup style='color:#94a3b8'>Click a bar to view matching equipment</sup>",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,
@@ -239,7 +239,7 @@ def build_repair_hours_by_building_figure(rep: pd.DataFrame) -> go.Figure:
             showline=False,
             title=dict(text="Hours", font=dict(size=11, color=C.COLOR_TEXT_MUTED)),
         ),
-        margin=dict(l=10, r=24, t=48, b=72),
+        margin=dict(l=10, r=24, t=56, b=72),
         bargap=0.35,
         height=300,
     )
@@ -301,7 +301,7 @@ def build_repair_hours_figure(rep: pd.DataFrame) -> go.Figure:
     )
     fig.update_layout(
         title=dict(
-            text="Repair Hours by Equipment",
+            text="Repair Hours by Equipment<br><sup style='color:#94a3b8'>Click a bar to view matching equipment</sup>",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,
