@@ -76,6 +76,7 @@ def default_app_settings():
         "iconNavOverview": "📊",
         "iconNavReplacement": "🚦",
         "iconNavOrders": "📋",
+        "iconNavRequests": "📝",
         "iconNavSettings": "⚙️",
         "iconReplaceTitle": "🚦",
         "iconReplaceStatusReplace": "🔴",

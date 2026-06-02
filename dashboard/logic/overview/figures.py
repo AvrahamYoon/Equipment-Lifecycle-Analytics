@@ -342,6 +342,7 @@ def build_request_calendar_figure(month_key: str, req: pd.DataFrame, week_starts
 
     max_count = max(count_by_day.values(), default=1)
 
+    month_key = str(period)
     rows, cols, texts, colors, customdata = [], [], [], [], []
     col, row_i = first_col, 0
     for day in range(1, days_in_mo + 1):
@@ -349,7 +350,7 @@ def build_request_calendar_figure(month_key: str, req: pd.DataFrame, week_starts
         cols.append(col)
         cnt = count_by_day.get(day, 0)
         texts.append(str(day))
-        customdata.append(cnt)
+        customdata.append([month_key, day, cnt])
         intensity = cnt / max_count if cnt else 0
         if cnt == 0:
             colors.append("#f1f5f9")
@@ -388,7 +389,7 @@ def build_request_calendar_figure(month_key: str, req: pd.DataFrame, week_starts
                 family="'DM Sans','Segoe UI',sans-serif",
             ),
             customdata=customdata,
-            hovertemplate="%{text} — %{customdata} request(s)<extra></extra>",
+            hovertemplate="%{text} — %{customdata[2]} request(s)<br><sup>Click to open roster</sup><extra></extra>",
         )
     )
     day_names = (
@@ -398,7 +399,7 @@ def build_request_calendar_figure(month_key: str, req: pd.DataFrame, week_starts
     )
     fig.update_layout(
         title=dict(
-            text=f"Request Volume — {period.strftime('%B %Y')}",
+            text=f"Request Volume — {period.strftime('%B %Y')}<br><sup style='color:#94a3b8'>Click a day to open Request roster</sup>",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,
@@ -454,17 +455,19 @@ def build_request_volume_by_month_figure(req: pd.DataFrame) -> go.Figure:
         go.Bar(
             x=labels,
             y=values,
+            customdata=list(months),
             marker=dict(color=C.C_BLUE, opacity=0.85, line=dict(width=0)),
             text=[str(v) for v in values],
             textposition="outside",
             textfont=dict(size=12, color=C.COLOR_TEXT_SECONDARY),
             cliponaxis=False,
+            hovertemplate="%{x}: %{y} requests<br><sup>Click to open roster</sup><extra></extra>",
         )
     )
     total = sum(values)
     fig.update_layout(
         title=dict(
-            text=f"Request Volume by Month  ·  {total} total",
+            text=f"Request Volume by Month  ·  {total} total<br><sup style='color:#94a3b8'>Click a bar to open Request roster</sup>",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,

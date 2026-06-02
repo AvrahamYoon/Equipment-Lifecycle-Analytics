@@ -5,6 +5,7 @@ from dash import dcc, html
 from dashboard import constants as C
 from dashboard.layouts.page_admin import admin_page_body
 from dashboard.layouts.page_orders import order_roster_page_body
+from dashboard.layouts.page_requests import request_roster_page_body
 from dashboard.layouts.page_overview import overview_page_body
 from dashboard.layouts.page_replacement import replacement_page_body
 from dashboard.layouts.page_settings import settings_page_body
@@ -84,6 +85,15 @@ def build_root_layout(month_options, default_month):
                     _nav_wrap(
                         "nav-wrap-orders",
                         _nav_item("/orders", "nav-icon-orders", _DEFAULTS["iconNavOrders"], "Order roster"),
+                    ),
+                    _nav_wrap(
+                        "nav-wrap-requests",
+                        _nav_item(
+                            "/requests",
+                            "nav-icon-requests",
+                            _DEFAULTS.get("iconNavRequests", _DEFAULTS["iconKpiRequests"]),
+                            "Request roster",
+                        ),
                     ),
                     html.Div(
                         style={
@@ -200,7 +210,7 @@ def build_root_layout(month_options, default_month):
                                         style={"width": 180, "fontFamily": "inherit", "fontSize": 13},
                                     ),
                                     html.Div(
-                                        "Filters Overview & Order roster. Replacement always rolls up every loaded month.",
+                                        "Filters Overview, Request roster & Order roster. Replacement always rolls up every loaded month.",
                                         style={
                                             "fontSize": 10,
                                             "color": C.COLOR_TEXT_MUTED,
@@ -231,6 +241,7 @@ def build_root_layout(month_options, default_month):
                             overview_page_body(),
                             replacement_page_body(),
                             order_roster_page_body(),
+                            request_roster_page_body(),
                             settings_page_body(),
                             admin_page_body(),
                         ],

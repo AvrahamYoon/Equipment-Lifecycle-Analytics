@@ -26,6 +26,7 @@ from dashboard.logic.buildings import normalize_building_value
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
 from dashboard.logic.replacement_table import build_replacement_table
+from dashboard.logic.request_roster_table import build_request_roster_table
 from dashboard.logic.service_scope import prepare_service_for_display
 
 from flask import session as flask_session
@@ -113,11 +114,13 @@ def register_callbacks(app):
         Output("page-overview", "style"),
         Output("page-replacement", "style"),
         Output("page-orders", "style"),
+        Output("page-requests", "style"),
         Output("page-settings", "style"),
         Output("page-admin", "style"),
         Output("nav-wrap-overview", "style"),
         Output("nav-wrap-replacement", "style"),
         Output("nav-wrap-orders", "style"),
+        Output("nav-wrap-requests", "style"),
         Output("nav-wrap-settings", "style"),
         Output("nav-wrap-admin", "style"),
         Input("url", "pathname"),
@@ -127,6 +130,7 @@ def register_callbacks(app):
             pathname = "/"
         on_rep = pathname == "/replacement"
         on_ord = pathname == "/orders"
+        on_req = pathname == "/requests"
         on_set = pathname == "/settings"
         on_admin = pathname == "/admin"
         role = str(flask_session.get("role") or "")
@@ -134,6 +138,7 @@ def register_callbacks(app):
         can_overview = "overview" in allowed_reports
         can_replacement = "replacement" in allowed_reports
         can_orders = "orders" in allowed_reports
+        can_requests = can_overview
         can_settings = "settings" in allowed_reports
         # Keep each page's intended outer spacing. The corresponding page
         # bodies in `dashboard/layouts/shell.py` already define padding and
@@ -141,6 +146,7 @@ def register_callbacks(app):
         page_overview = {"padding": "28px 36px 40px", "maxWidth": 1440, "margin": "0 auto", "minWidth": 0}
         page_replacement = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
         page_orders = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
+        page_requests = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
         page_settings = {"padding": "24px 28px", "maxWidth": 1240, "margin": "0 auto", "minWidth": 0}
         page_admin = {"padding": "24px 28px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
 
@@ -165,13 +171,16 @@ def register_callbacks(app):
                 ),
             }
 
-        ov = not on_rep and not on_ord and not on_set and not on_admin
+        ov = not on_rep and not on_ord and not on_req and not on_set and not on_admin
         if ov and not can_overview:
             if can_replacement:
                 on_rep = True
                 ov = False
             elif can_orders:
                 on_ord = True
+                ov = False
+            elif can_requests:
+                on_req = True
                 ov = False
             elif can_settings:
                 on_set = True
@@ -180,11 +189,13 @@ def register_callbacks(app):
             {**page_overview, "display": "block" if ov and can_overview else "none"},
             {**page_replacement, "display": "block" if on_rep and can_replacement else "none"},
             {**page_orders, "display": "block" if on_ord and can_orders else "none"},
+            {**page_requests, "display": "block" if on_req and can_requests else "none"},
             {**page_settings, "display": "block" if on_set and can_settings else "none"},
             {**page_admin, "display": "block" if on_admin and role == "admin" else "none"},
             ({**nav_item(ov), "display": "block"} if can_overview else {"display": "none"}),
             ({**nav_item(on_rep), "display": "block"} if can_replacement else {"display": "none"}),
             ({**nav_item(on_ord), "display": "block"} if can_orders else {"display": "none"}),
+            ({**nav_item(on_req), "display": "block"} if can_requests else {"display": "none"}),
             ({**nav_item(on_set), "display": "block"} if can_settings else {"display": "none"}),
             ({**nav_item(on_admin), "display": "block"} if role == "admin" else {"display": "none"}),
         )
@@ -239,12 +250,41 @@ def register_callbacks(app):
         Output("chart-drill-store", "data"),
         Input("hours-chart", "clickData"),
         Input("building-hours-chart", "clickData"),
+        Input("calendar-chart", "clickData"),
         prevent_initial_call=True,
     )
-    def drill_from_overview_charts(hours_click, building_click):
-        if "replacement" not in _allowed_reports_for_session():
-            raise PreventUpdate
+    def drill_from_overview_charts(hours_click, building_click, calendar_click):
+        allowed = _allowed_reports_for_session()
         triggered = callback_context.triggered_id
+
+        if triggered == "calendar-chart":
+            if "overview" not in allowed:
+                raise PreventUpdate
+            click = calendar_click
+            if not click or not click.get("points"):
+                raise PreventUpdate
+            cd = click["points"][0].get("customdata")
+            if cd is None:
+                raise PreventUpdate
+            if isinstance(cd, (list, tuple)) and len(cd) >= 2:
+                month_key = str(cd[0])
+                day_raw = cd[1]
+                try:
+                    day = int(day_raw)
+                except (TypeError, ValueError):
+                    day = None
+            elif isinstance(cd, str) and len(cd) >= 7:
+                month_key = cd
+                day = None
+            else:
+                raise PreventUpdate
+            payload = {"page": "requests", "month_key": month_key}
+            if day is not None:
+                payload["day"] = day
+            return "/requests", payload
+
+        if "replacement" not in allowed:
+            raise PreventUpdate
         if triggered == "hours-chart":
             click = hours_click
             axis_key = "y"
@@ -273,6 +313,26 @@ def register_callbacks(app):
         if not drill or drill.get("page") != "replacement":
             raise PreventUpdate
         return drill.get("category") or "", drill.get("building") or "", None
+
+    @app.callback(
+        Output("month-select", "value"),
+        Output("request-filter-day", "value"),
+        Output("request-filter-work-order", "value"),
+        Output("request-filter-requestor", "value"),
+        Output("request-filter-text", "value"),
+        Output("chart-drill-store", "data", allow_duplicate=True),
+        Input("chart-drill-store", "data"),
+        prevent_initial_call=True,
+    )
+    def apply_chart_drill_to_requests(drill):
+        if not drill or drill.get("page") != "requests":
+            raise PreventUpdate
+        month_key = drill.get("month_key")
+        if not month_key:
+            raise PreventUpdate
+        day = drill.get("day")
+        day_val = int(day) if day is not None and str(day).strip() != "" else None
+        return month_key, day_val, "", "", "", None
 
     @app.callback(
         Output("replace-filter-category", "options"),
@@ -383,6 +443,50 @@ def register_callbacks(app):
         )
 
     @app.callback(
+        Output("request-roster-table", "columns"),
+        Output("request-roster-table", "data"),
+        Output("request-roster-table", "style_data_conditional"),
+        Output("request-roster-table", "page_size"),
+        Output("request-row-count", "children"),
+        Output("request-empty-state", "style"),
+        Input("month-select", "value"),
+        Input("request-filter-day", "value"),
+        Input("request-filter-work-order", "value"),
+        Input("request-filter-requestor", "value"),
+        Input("request-filter-text", "value"),
+        Input("request-page-size", "value"),
+    )
+    def update_request_roster_table(
+        month_key,
+        filter_day,
+        filter_wo,
+        filter_requestor,
+        filter_text,
+        page_size_value,
+    ):
+        if C.is_all_months(month_key):
+            req = df_req[df_req["month_key"].astype(str) != "NaT"]
+        else:
+            req = df_req[df_req["month_key"] == month_key]
+        req = _apply_building_scope(req)
+        req_filters = {
+            "day": str(filter_day).strip() if filter_day is not None else "",
+            "work_order_substr": filter_wo or "",
+            "requestor_substr": filter_requestor or "",
+            "request_substr": filter_text or "",
+        }
+        total = int(len(req))
+        rcols, rdata, rstyle = build_request_roster_table(req, req_filters)
+        return (
+            rcols,
+            rdata,
+            rstyle,
+            C.resolve_page_size(page_size_value),
+            _format_row_count(len(rdata), total, "request"),
+            _empty_state_style(len(rdata) == 0),
+        )
+
+    @app.callback(
         Output("order-filter-category", "value"),
         Input("month-select", "value"),
         prevent_initial_call=True,
@@ -394,9 +498,11 @@ def register_callbacks(app):
         Output("nav-icon-overview", "children"),
         Output("nav-icon-replacement", "children"),
         Output("nav-icon-orders", "children"),
+        Output("nav-icon-requests", "children"),
         Output("nav-icon-settings", "children"),
         Output("replace-page-title-icon", "children"),
         Output("order-page-title-icon", "children"),
+        Output("request-page-title-icon", "children"),
         Output("replace-legend-ico-replace", "children"),
         Output("replace-legend-ico-monitor", "children"),
         Output("replace-legend-ico-good", "children"),
@@ -405,13 +511,16 @@ def register_callbacks(app):
     def sync_chrome_icons(data):
         m = merge_app_settings(data)
         io = m["iconNavOrders"]
+        ir = m.get("iconNavRequests", m["iconKpiRequests"])
         return (
             m["iconNavOverview"],
             m["iconNavReplacement"],
             io,
+            ir,
             m["iconNavSettings"],
             m["iconReplaceTitle"],
             io,
+            ir,
             m["iconReplaceStatusReplace"],
             m["iconReplaceStatusMonitor"],
             m["iconReplaceStatusGood"],
