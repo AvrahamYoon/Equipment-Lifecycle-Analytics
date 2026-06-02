@@ -26,7 +26,7 @@ from dashboard.logic.buildings import normalize_building_value
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
 from dashboard.logic.replacement_table import build_replacement_table
-from dashboard.logic.service_scope import apply_effective_service_status
+from dashboard.logic.service_scope import prepare_service_for_display
 
 from flask import session as flask_session
 
@@ -223,7 +223,7 @@ def register_callbacks(app):
         req = _apply_building_scope(req)
         svc = _apply_building_scope(svc)
         rep = _apply_building_scope(rep)
-        svc = apply_effective_service_status(svc, month_key, df_service)
+        svc = prepare_service_for_display(svc, month_key, df_service)
         out = build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
         primary_budget, secondary_budget = out[9], out[10]
         _square = {**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"}
@@ -362,7 +362,7 @@ def register_callbacks(app):
         else:
             svc = df_service[df_service["month_key"] == month_key]
         svc = _apply_building_scope(svc)
-        svc = apply_effective_service_status(svc, month_key, df_service)
+        svc = prepare_service_for_display(svc, month_key, df_service)
         order_filters = {
             "category": order_cat or "",
             "status_substr": order_status or "",
