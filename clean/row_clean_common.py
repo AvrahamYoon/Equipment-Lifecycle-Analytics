@@ -14,7 +14,8 @@ DEFAULT_HOURS_WHEN_BLANK = 1.0
 
 
 def project_root() -> Path:
-    return Path(__file__).resolve().parent
+    """Repository root (parent of the ``clean`` package)."""
+    return Path(__file__).resolve().parent.parent
 
 
 def row_input_dir(kind: str) -> Path:

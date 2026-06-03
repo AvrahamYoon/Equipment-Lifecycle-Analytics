@@ -57,13 +57,20 @@ Paths are fixed in `dashboard/constants.py`; change them there and restart. If s
 - `DASHBOARD_SECRET_KEY` (recommended): Flask session secret
 - `SESSION_COOKIE_SECURE` (optional): set `1` when serving over HTTPS
 
-**Equipment cleaner** — put Compuclean exports in `data/equipment/raw/`, then:
+**Offline cleaners** — run from the repo root (`python -m clean.<script>`):
+
+| Script | Input | Output |
+|--------|--------|--------|
+| `clean.list_clean` | `data/equipment/raw/*.csv` | `data/equipment/cleaned/` (`*_cleaned.csv`, `all_equipment_summary.csv`) |
+| `clean.requests_row_clean` | `data/requests/row/` | `data/requests/` |
+| `clean.service_row_clean` | `data/service/row/` | `data/service/` |
+| `clean.repairs_row_clean` | `data/repairs/row/` | `data/repairs/` |
+
+Example — equipment list:
 
 ```bash
-python list_clean.py
+python -m clean.list_clean
 ```
-
-Writes per-file `*_cleaned.csv` and merged `all_equipment_summary.csv` (deduped by `EquipmentId`) under `data/equipment/cleaned/`.
 
 ---
 
@@ -82,7 +89,7 @@ Writes per-file `*_cleaned.csv` and merged `all_equipment_summary.csv` (deduped 
 | `dashboard/logic/replacement_table.py` | Replacement `DataTable` (cumulative repair cost vs. estimated new price) |
 | `dashboard/logic/repair_orders_table.py` | Order roster `DataTable` (service lines, business-day span, filters) |
 | `dashboard/logic/overview_charts.py` | Compatibility re-export for `build_overview` |
-| `list_clean.py` | Batch equipment list cleanup |
+| `clean/` | Offline CSV cleaners (`list_clean`, `*_row_clean`, shared `row_clean_common`) |
 | `data/equipment/raw/`, `data/equipment/cleaned/` | Raw exports vs. cleaned outputs and summary |
 | `data/requests/`, `data/service/`, `data/repairs/` | Work request, service, and repair CSV exports (any filenames; all `*.csv` in a folder are merged) |
 
@@ -118,9 +125,9 @@ Replacement rolls up **all** loaded repair months by equipment: cumulative labor
 
 Dash loads this automatically. It centralizes table hover, numeric alignment, filter-toolbar focus rings, row-count pills, page-size segments, empty-state panels, and small layout utilities so layouts mostly set `className` instead of duplicating inline style.
 
-### Offline cleaning (`list_clean.py`)
+### Offline cleaning (`clean/`)
 
-Standalone script: reads raw equipment CSVs, normalizes fields, writes cleaned per-site files, and merges a deduplicated summary used by the dashboard’s availability and equipment-class logic when present.
+Standalone scripts: equipment list cleanup plus row-format converters for requests, service, and repairs. They read from `data/.../raw` or `data/.../row` and write dashboard-ready CSVs under `data/`.
 
 ---
 
