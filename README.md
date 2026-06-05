@@ -65,7 +65,6 @@ Paths are fixed in `dashboard/constants.py`; change them there and restart. If s
 | `clean.requests_row_clean` | `data/requests/row/` | `data/requests/` |
 | `clean.service_row_clean` | `data/service/row/` | `data/service/` |
 | `clean.repairs_row_clean` | `data/repairs/row/` | `data/repairs/` |
-| `clean.generate_valuation_sheet` | `data/equipment/purchase/purchase.csv` | `Equipment Valuation Sheet.csv` (median **Original Purchase Cost** per description; other columns left for manual entry) |
 
 Example — equipment list:
 
@@ -73,10 +72,10 @@ Example — equipment list:
 python -m clean.list_clean
 ```
 
-Regenerate the valuation sheet when `purchase.csv` changes (run manually; dashboard only **reads** the CSV at startup):
+Regenerate the valuation sheet when data changes (run manually; dashboard only **reads** the CSV at startup):
 
 ```bash
-python -m clean.generate_valuation_sheet
+python -m valuation
 ```
 
 ---
@@ -86,6 +85,7 @@ python -m clean.generate_valuation_sheet
 | Path | Role |
 |------|------|
 | `work_order_dashboard.py` | Entry point for the Dash server |
+| `valuation.py` | Keyword grouping, valuation sheet, replacement pricing; run `python -m valuation` to generate the sheet |
 | `dashboard/` | Application package (factory, layout, callbacks, loaders, theme constants, taxonomy helpers, calendar helpers) |
 | `dashboard/sql/` | DuckDB SQL templates used for stacking multi-file exports and selected `read_csv_auto` reads |
 | `dashboard/sql_exec.py` | SQL/DuckDB execution helpers (`run_csv_sql`, `merge_frames_by_name`) used by `data_loaders.py` |
@@ -150,7 +150,7 @@ Standalone scripts: equipment list cleanup plus row-format converters for reques
 
 ## Replacement rule
 
-Per **equipment ID**, let **R** = cumulative labor + parts over **all** repair rows (excluding invalid `NaT` months). Let **N** = estimated new price: `purchase.csv` by ID when present; else **Original Purchase Cost** from `Equipment Valuation Sheet.csv` (generate from `purchase.csv` with `python -m clean.generate_valuation_sheet`); else service **Estimated Price**. The header month control does **not** change this view.
+Per **equipment ID**, let **R** = cumulative labor + parts over **all** repair rows (excluding invalid `NaT` months). Let **N** = estimated new price: `purchase.csv` by ID when present; else **Original Purchase Cost** from `Equipment Valuation Sheet.csv` (generate with `python -m valuation`); else service **Estimated Price**. The header month control does **not** change this view.
 
 - **Replace** if **R ≥ 0.80 × N**
 - **Monitor** if **0.60 × N ≤ R < 0.80 × N**

@@ -6,12 +6,14 @@ import os
 import pandas as pd
 
 from dashboard import constants as C
-from dashboard.equipment_pricing import (
+from valuation import (
     apply_new_prices_to_repairs,
+    build_keyword_prices_from_service,
     build_service_price_map,
     load_purchase_price_map,
+    load_valuation_sheet,
+    merge_valuation_sheet,
 )
-from dashboard.valuation_sheet import load_valuation_sheet
 from dashboard.taxonomy import (
     apply_equip_category,
     build_equip_category_lookup,
@@ -264,7 +266,10 @@ try:
         df_repairs, _equip_category_lookup, id_col="equipIdNorm"
     )
     _purchase_prices = load_purchase_price_map(C.PURCHASE_CSV)
-    _valuation_sheet = load_valuation_sheet(C.VALUATION_CSV)
+    _valuation_sheet = merge_valuation_sheet(
+        load_valuation_sheet(C.VALUATION_CSV),
+        build_keyword_prices_from_service(df_service),
+    )
     _service_prices = build_service_price_map(df_service)
     df_repairs = apply_new_prices_to_repairs(
         df_repairs, _purchase_prices, _service_prices, _valuation_sheet

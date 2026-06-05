@@ -7,7 +7,7 @@ from disk); the dashboard wires this independently of the header month filter.
 import pandas as pd
 
 from dashboard import constants as C
-from dashboard.equipment_pricing import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
+from valuation import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
 from dashboard.logic.buildings import normalize_building_value
 
 _MARKDOWN_COLS = frozenset({"Status", PRICE_BASIS_COLUMN})

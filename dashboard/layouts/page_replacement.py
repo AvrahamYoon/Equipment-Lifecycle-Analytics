@@ -3,7 +3,7 @@
 from dash import dcc, html, dash_table
 
 from dashboard import constants as C
-from dashboard.equipment_pricing import PRICE_BASIS_TOOLTIP
+from valuation import PRICE_BASIS_TOOLTIP
 from dashboard.layouts.page_common import table_info_bar
 
 _DEFAULTS = C.default_app_settings()
