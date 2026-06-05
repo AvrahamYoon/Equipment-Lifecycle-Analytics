@@ -65,11 +65,18 @@ Paths are fixed in `dashboard/constants.py`; change them there and restart. If s
 | `clean.requests_row_clean` | `data/requests/row/` | `data/requests/` |
 | `clean.service_row_clean` | `data/service/row/` | `data/service/` |
 | `clean.repairs_row_clean` | `data/repairs/row/` | `data/repairs/` |
+| `clean.generate_valuation_sheet` | `data/equipment/purchase/purchase.csv` | `Equipment Valuation Sheet.csv` (median **Original Purchase Cost** per description; other columns left for manual entry) |
 
 Example — equipment list:
 
 ```bash
 python -m clean.list_clean
+```
+
+Regenerate the valuation sheet when `purchase.csv` changes (run manually; dashboard only **reads** the CSV at startup):
+
+```bash
+python -m clean.generate_valuation_sheet
 ```
 
 ---
@@ -90,6 +97,7 @@ python -m clean.list_clean
 | `dashboard/logic/repair_orders_table.py` | Order roster `DataTable` (service lines, business-day span, filters) |
 | `dashboard/logic/overview_charts.py` | Compatibility re-export for `build_overview` |
 | `clean/` | Offline CSV cleaners (`list_clean`, `*_row_clean`, shared `row_clean_common`) |
+| `data/equipment/purchase/` | `purchase.csv` (per-ID cost), `Equipment Valuation Sheet.csv` (generated reference; dashboard reads **Original Purchase Cost** at startup), `Type.csv` |
 | `data/equipment/raw/`, `data/equipment/cleaned/` | Raw exports vs. cleaned outputs and summary |
 | `data/requests/`, `data/service/`, `data/repairs/` | Work request, service, and repair CSV exports (any filenames; all `*.csv` in a folder are merged) |
 
@@ -142,7 +150,7 @@ Standalone scripts: equipment list cleanup plus row-format converters for reques
 
 ## Replacement rule
 
-Per **equipment ID**, let **R** = cumulative labor + parts over **all** repair rows (excluding invalid `NaT` months). Let **N** = estimated new price from the repair loader’s name-based map in `data_loaders.py`. The header month control does **not** change this view.
+Per **equipment ID**, let **R** = cumulative labor + parts over **all** repair rows (excluding invalid `NaT` months). Let **N** = estimated new price: `purchase.csv` by ID when present; else **Original Purchase Cost** from `Equipment Valuation Sheet.csv` (generate from `purchase.csv` with `python -m clean.generate_valuation_sheet`); else service **Estimated Price**. The header month control does **not** change this view.
 
 - **Replace** if **R ≥ 0.80 × N**
 - **Monitor** if **0.60 × N ≤ R < 0.80 × N**

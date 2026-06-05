@@ -11,6 +11,7 @@ from dashboard.equipment_pricing import (
     build_service_price_map,
     load_purchase_price_map,
 )
+from dashboard.valuation_sheet import load_valuation_sheet
 from dashboard.taxonomy import (
     apply_equip_category,
     build_equip_category_lookup,
@@ -263,8 +264,11 @@ try:
         df_repairs, _equip_category_lookup, id_col="equipIdNorm"
     )
     _purchase_prices = load_purchase_price_map(C.PURCHASE_CSV)
+    _valuation_sheet = load_valuation_sheet(C.VALUATION_CSV)
     _service_prices = build_service_price_map(df_service)
-    df_repairs = apply_new_prices_to_repairs(df_repairs, _purchase_prices, _service_prices)
+    df_repairs = apply_new_prices_to_repairs(
+        df_repairs, _purchase_prices, _service_prices, _valuation_sheet
+    )
 except FileNotFoundError as e:
     raise SystemExit(
         f"{e}\n"

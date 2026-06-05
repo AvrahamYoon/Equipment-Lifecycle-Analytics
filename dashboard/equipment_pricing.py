@@ -1,36 +1,14 @@
-"""New-equipment price resolution for replacement (purchase CSV, then service estimates)."""
+"""New-equipment price resolution: purchase.csv by ID, valuation sheet, then service."""
+
+from __future__ import annotations
 
 import os
 
 import pandas as pd
 
 from dashboard.taxonomy import ensure_equip_id_norm_column, norm_equip_id
-
-
-def _norm_col_key(name: str) -> str:
-    return str(name).lower().replace(" ", "").replace("_", "").replace("#", "")
-
-
-def parse_dollar_amount(value) -> float | None:
-    if pd.isna(value):
-        return None
-    s = str(value).strip()
-    if not s:
-        return None
-    s = s.replace("$", "").replace(",", "")
-    n = pd.to_numeric(s, errors="coerce")
-    if pd.isna(n) or float(n) <= 0:
-        return None
-    return float(n)
-
-
-def _pick_column(df: pd.DataFrame, *aliases: str) -> str | None:
-    key_to_col = {_norm_col_key(c): c for c in df.columns}
-    for a in aliases:
-        k = _norm_col_key(a)
-        if k in key_to_col:
-            return key_to_col[k]
-    return None
+from dashboard.valuation_sheet import ValuationSheet, lookup_valuation_price
+from pricing_common import parse_dollar_amount, pick_column
 
 
 def load_purchase_price_map(path: str) -> dict[str, float]:
@@ -44,8 +22,8 @@ def load_purchase_price_map(path: str) -> dict[str, float]:
     if df.empty:
         return {}
 
-    id_col = _pick_column(df, "ID #", "ID", "Equipment ID", "EquipmentId")
-    cost_col = _pick_column(df, "Cost", "Purch. Cost", "Purchase Cost")
+    id_col = pick_column(df, "ID #", "ID", "Equipment ID", "EquipmentId")
+    cost_col = pick_column(df, "Cost", "Purch. Cost", "Purchase Cost")
     if not id_col or not cost_col:
         return {}
 
@@ -65,8 +43,8 @@ def build_service_price_map(df_service: pd.DataFrame) -> dict[str, float]:
     if df_service is None or df_service.empty:
         return {}
 
-    id_col = _pick_column(df_service, "Equipment Id", "Equipment ID", "equipId")
-    price_col = _pick_column(
+    id_col = pick_column(df_service, "Equipment Id", "Equipment ID", "equipId")
+    price_col = pick_column(
         df_service,
         "Estimated Price",
         "New Price",
@@ -88,28 +66,38 @@ def build_service_price_map(df_service: pd.DataFrame) -> dict[str, float]:
 
 
 PRICE_SOURCE_PURCHASE = "purchase"
+PRICE_SOURCE_VALUATION = "valuation"
 PRICE_SOURCE_SERVICE = "service"
 PRICE_SOURCE_NONE = ""
 
 PRICE_SOURCE_LABEL = {
     PRICE_SOURCE_PURCHASE: "Accurate",
+    PRICE_SOURCE_VALUATION: "Valuation",
     PRICE_SOURCE_SERVICE: "Estimated",
     PRICE_SOURCE_NONE: "—",
 }
 
 PRICE_BASIS_COLUMN = "Price basis"
-PRICE_BASIS_TOOLTIP = "Recorded purchase cost when ID matches; otherwise service estimate."
+PRICE_BASIS_TOOLTIP = (
+    "Purchase.csv cost by equipment ID; else Original Purchase Cost from "
+    "Equipment Valuation Sheet.csv (regenerate with "
+    "python -m clean.generate_valuation_sheet when purchase.csv changes); "
+    "else service estimated price."
+)
 
 
 def resolve_price_source(
     equip_id,
+    equipment_name,
     purchase_map: dict[str, float],
     service_map: dict[str, float],
+    valuation_sheet: ValuationSheet | None = None,
 ) -> str:
-    """``purchase`` when cost comes from purchase.csv; ``service`` when estimated."""
     eid = norm_equip_id(equip_id)
     if eid and eid in purchase_map:
         return PRICE_SOURCE_PURCHASE
+    if lookup_valuation_price(equipment_name, valuation_sheet) is not None:
+        return PRICE_SOURCE_VALUATION
     if eid and eid in service_map:
         return PRICE_SOURCE_SERVICE
     return PRICE_SOURCE_NONE
@@ -117,13 +105,17 @@ def resolve_price_source(
 
 def resolve_new_price(
     equip_id,
+    equipment_name,
     purchase_map: dict[str, float],
     service_map: dict[str, float],
+    valuation_sheet: ValuationSheet | None = None,
 ) -> float:
-    """Purchase cost when ID matches; otherwise service estimate; else 0."""
     eid = norm_equip_id(equip_id)
     if eid and eid in purchase_map:
         return purchase_map[eid]
+    val = lookup_valuation_price(equipment_name, valuation_sheet)
+    if val is not None:
+        return val
     if eid and eid in service_map:
         return service_map[eid]
     return 0.0
@@ -133,6 +125,7 @@ def apply_new_prices_to_repairs(
     df: pd.DataFrame,
     purchase_map: dict[str, float],
     service_map: dict[str, float],
+    valuation_sheet: ValuationSheet | None = None,
 ) -> pd.DataFrame:
     if df.empty:
         out = df.copy()
@@ -140,11 +133,20 @@ def apply_new_prices_to_repairs(
         out["priceSource"] = pd.Series(dtype=str)
         return out
     out = ensure_equip_id_norm_column(df, raw_col="equipId", norm_col="equipIdNorm")
-    norm_ids = out["equipIdNorm"]
-    out["newPrice"] = norm_ids.map(
-        lambda x: resolve_new_price(x, purchase_map, service_map)
-    )
-    out["priceSource"] = norm_ids.map(
-        lambda x: resolve_price_source(x, purchase_map, service_map)
-    )
+    equip_col = "equipment" if "equipment" in out.columns else None
+
+    def _row_prices(row):
+        name = row[equip_col] if equip_col else ""
+        eid = row["equipIdNorm"]
+        price = resolve_new_price(
+            eid, name, purchase_map, service_map, valuation_sheet
+        )
+        source = resolve_price_source(
+            eid, name, purchase_map, service_map, valuation_sheet
+        )
+        return price, source
+
+    priced = out.apply(_row_prices, axis=1, result_type="expand")
+    out["newPrice"] = priced[0]
+    out["priceSource"] = priced[1]
     return out
