@@ -204,6 +204,8 @@
   padding: 18px 20px !important;
   margin-bottom: 18px !important;
   box-shadow: 0 4px 20px -10px rgba(15, 23, 42, 0.08) !important;
+  position: relative;
+  z-index: 20;
 }
 
 .filter-label {
@@ -281,6 +283,8 @@
   border-radius: var(--fm-radius-lg);
   overflow: hidden;
   box-shadow: 0 8px 30px -14px rgba(15, 23, 42, 0.12);
+  position: relative;
+  z-index: 1;
 }
 
 .table-card .dash-spreadsheet-container {
@@ -677,6 +681,14 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16) !important;
 }
 
+.fm-toolbar .Select {
+  position: relative;
+}
+
+.fm-toolbar .Select.is-open {
+  z-index: 30;
+}
+
 .fm-toolbar .Select-menu-outer,
 .fm-header .Select-menu-outer {
   border: 1px solid var(--fm-border) !important;
@@ -684,6 +696,7 @@
   margin-top: 6px;
   box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.18) !important;
   overflow: hidden;
+  z-index: 50;
 }
 
 .fm-toolbar .Select-option,
