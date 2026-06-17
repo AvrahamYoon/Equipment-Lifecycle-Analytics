@@ -227,6 +227,26 @@ def set_user_password(db_path: str, user_id: int, password: str) -> None:
         conn.commit()
 
 
+def delete_user(db_path: str, user_id: int) -> None:
+    """Permanently delete a user and their scoped permissions."""
+    user_id = int(user_id)
+    with _connect(db_path) as conn:
+        current = conn.execute(
+            "SELECT id, role, is_active FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if current is None:
+            raise ValueError("user not found")
+        current_role = str(current["role"] or "")
+        current_active = int(current["is_active"]) == 1
+        if current_role == "admin" and current_active:
+            admin_count = _count_active_admins(db_path)
+            if admin_count <= 1:
+                raise ValueError("Cannot delete the last active admin.")
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+
+
 def set_user_role(db_path: str, user_id: int, role: str) -> None:
     """Update role for one user."""
     user_id = int(user_id)

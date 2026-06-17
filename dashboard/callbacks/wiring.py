@@ -5,6 +5,7 @@ from dash.exceptions import PreventUpdate
 
 from dashboard import constants as C
 from dashboard.auth import (
+    delete_user,
     get_user_scopes,
     list_users,
     resolve_auth_db_path,
@@ -93,6 +94,38 @@ def _building_options_from_data() -> list[dict]:
             if col in df.columns:
                 vals.update(_normalize_building_scope(df[col].dropna().tolist()))
     return [{"label": v, "value": v} for v in sorted(vals)]
+
+
+def _reports_summary_for_user(db_path: str, user_id: int, role: str) -> str:
+    if str(role or "").lower() == "admin":
+        return "All"
+    scopes = get_user_scopes(db_path, int(user_id))
+    reports = scopes.get("reports") or list(_REPORT_KEYS)
+    if len(reports) >= len(_REPORT_KEYS):
+        return "All"
+    return ", ".join(reports) if reports else "None"
+
+
+def _buildings_scope_label(buildings: list[str]) -> str:
+    if not buildings:
+        return "All"
+    n = len(buildings)
+    return f"{n} selected" if n > 1 else buildings[0]
+
+
+def _admin_users_table_rows(db_path: str) -> list[dict]:
+    rows = []
+    for display_id, user in enumerate(list_users(db_path), start=1):
+        role = str(user.get("role") or "user")
+        rows.append(
+            {
+                **user,
+                "display_id": display_id,
+                "active_label": "Active" if user.get("is_active") else "Disabled",
+                "reports_summary": _reports_summary_for_user(db_path, int(user["id"]), role),
+            }
+        )
+    return rows
 
 
 def _repair_category_options() -> list[dict]:
@@ -709,20 +742,24 @@ def register_callbacks(app):
         Output("admin-users-table", "columns"),
         Output("admin-users-table", "style_data_conditional"),
         Output("admin-edit-buildings", "options"),
+        Output("admin-add-buildings", "options"),
         Input("url", "pathname"),
         Input("admin-add-user-btn", "n_clicks"),
         Input("admin-save-user-btn", "n_clicks"),
+        Input("admin-delete-confirm", "submit_n_clicks"),
     )
-    def load_admin_users(pathname, _add_clicks, _save_clicks):
+    def load_admin_users(pathname, _add_clicks, _save_clicks, _delete_clicks):
         if pathname != "/admin":
-            return no_update, no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update, no_update
         db_path = resolve_auth_db_path()
-        users = list_users(db_path)
+        users = _admin_users_table_rows(db_path)
+        building_options = _building_options_from_data()
         columns = [
-            {"name": "ID", "id": "id"},
+            {"name": "#", "id": "display_id"},
             {"name": "Username", "id": "username"},
             {"name": "Role", "id": "role"},
-            {"name": "Active", "id": "is_active"},
+            {"name": "Active", "id": "active_label"},
+            {"name": "Reports", "id": "reports_summary"},
             {"name": "Created", "id": "created_at"},
             {"name": "Last login", "id": "last_login_at"},
         ]
@@ -736,7 +773,7 @@ def register_callbacks(app):
                     "fontWeight": 700,
                 }
             )
-        return users, columns, style_data_conditional, _building_options_from_data()
+        return users, columns, style_data_conditional, building_options, building_options
 
     @app.callback(
         Output("admin-edit-active", "value"),
@@ -744,32 +781,89 @@ def register_callbacks(app):
         Output("admin-edit-password", "value"),
         Output("admin-edit-reports", "value"),
         Output("admin-edit-buildings", "value"),
+        Output("admin-edit-username", "children"),
         Input("admin-users-table", "selected_rows"),
         State("admin-users-table", "data"),
     )
     def sync_admin_edit_fields(selected_rows, table_data):
         if not selected_rows or not table_data:
-            return 1, "user", "", list(_REPORT_KEYS), []
+            return 1, "user", "", list(_REPORT_KEYS), [], "Select a user row to edit."
         idx = selected_rows[0]
         if idx is None or idx >= len(table_data):
-            return 1, "user", "", list(_REPORT_KEYS), []
+            return 1, "user", "", list(_REPORT_KEYS), [], "Select a user row to edit."
         row = table_data[idx]
         active = 1 if bool(row.get("is_active")) else 0
         role = str(row.get("role") or "user")
+        username = str(row.get("username") or "")
         db_path = resolve_auth_db_path()
         scopes = get_user_scopes(db_path, int(row.get("id")))
         reports = scopes.get("reports") or list(_REPORT_KEYS)
         buildings = scopes.get("buildings") or []
-        return active, role, "", reports, buildings
+        reports_label = "All" if role == "admin" or len(reports) >= len(_REPORT_KEYS) else (
+            ", ".join(reports) if reports else "None"
+        )
+        buildings_label = "All" if role == "admin" else _buildings_scope_label(buildings)
+        return (
+            active,
+            role,
+            "",
+            reports,
+            buildings,
+            f"Editing: {username} · Reports: {reports_label} · Buildings: {buildings_label}",
+        )
 
     @app.callback(
-        Output("admin-message", "children"),
+        Output("admin-edit-reports", "disabled"),
+        Output("admin-edit-buildings", "disabled"),
+        Output("admin-edit-scope-hint", "children"),
+        Input("admin-edit-role", "value"),
+    )
+    def sync_admin_edit_scope_controls(role):
+        is_admin = str(role or "").lower() == "admin"
+        hint = "Admin accounts always have full report and building access." if is_admin else ""
+        return is_admin, is_admin, hint
+
+    @app.callback(
+        Output("admin-add-reports", "disabled"),
+        Output("admin-add-buildings", "disabled"),
+        Output("admin-add-scope-hint", "children"),
+        Input("admin-add-role", "value"),
+    )
+    def sync_admin_add_scope_controls(role):
+        is_admin = str(role or "").lower() == "admin"
+        hint = "Admin accounts always have full report and building access." if is_admin else ""
+        return is_admin, is_admin, hint
+
+    @app.callback(
+        Output("admin-delete-confirm", "displayed"),
+        Output("admin-message", "children", allow_duplicate=True),
+        Input("admin-delete-user-btn", "n_clicks"),
+        State("admin-users-table", "selected_rows"),
+        State("admin-users-table", "data"),
+        prevent_initial_call=True,
+    )
+    def prompt_delete_user(delete_clicks, selected_rows, table_data):
+        if not delete_clicks:
+            raise PreventUpdate
+        if not selected_rows or not table_data:
+            return False, html.Div("Select a user row first.", style={"color": "#b91c1c"})
+        idx = selected_rows[0]
+        if idx is None or idx >= len(table_data):
+            return False, html.Div("Invalid selection.", style={"color": "#b91c1c"})
+        return True, no_update
+
+    @app.callback(
+        Output("admin-users-table", "selected_rows"),
+        Output("admin-message", "children", allow_duplicate=True),
         Input("admin-add-user-btn", "n_clicks"),
         Input("admin-save-user-btn", "n_clicks"),
+        Input("admin-delete-confirm", "submit_n_clicks"),
         State("admin-add-username", "value"),
         State("admin-add-password", "value"),
         State("admin-add-role", "value"),
         State("admin-add-active", "value"),
+        State("admin-add-reports", "value"),
+        State("admin-add-buildings", "value"),
         State("admin-users-table", "selected_rows"),
         State("admin-users-table", "data"),
         State("admin-edit-active", "value"),
@@ -777,14 +871,18 @@ def register_callbacks(app):
         State("admin-edit-password", "value"),
         State("admin-edit-reports", "value"),
         State("admin-edit-buildings", "value"),
+        prevent_initial_call=True,
     )
     def handle_admin_actions(
         add_clicks,
         save_clicks,
+        delete_submit_clicks,
         add_username,
         add_password,
         add_role,
         add_active,
+        add_reports,
+        add_buildings,
         selected_rows,
         table_data,
         edit_active,
@@ -807,27 +905,40 @@ def register_callbacks(app):
                 password = add_password or ""
                 role = str(add_role or "user").strip().lower()
                 if not username or not password:
-                    return html.Div("Username and password are required.", style={"color": "#b91c1c"})
+                    return no_update, html.Div("Username and password are required.", style={"color": "#b91c1c"})
                 is_active = 1 if int(add_active) == 1 else 0
 
                 upsert_user(db_path, username, password, role, is_active=bool(is_active))
-                return html.Div(f"User '{username}' added/updated.", style={"color": "#047857"})
+                user_row = next(
+                    (u for u in list_users(db_path) if str(u.get("username")) == username),
+                    None,
+                )
+                if user_row and role != "admin":
+                    set_user_scopes(
+                        db_path,
+                        int(user_row["id"]),
+                        add_reports or [],
+                        sorted(_normalize_building_scope(add_buildings or [])),
+                    )
+                return no_update, html.Div(f"User '{username}' added/updated.", style={"color": "#047857"})
 
             if tid == "admin-save-user-btn":
                 if not selected_rows or not table_data:
-                    return html.Div("Select a user row first.", style={"color": "#b91c1c"})
+                    return no_update, html.Div("Select a user row first.", style={"color": "#b91c1c"})
                 idx = selected_rows[0]
                 if idx is None or idx >= len(table_data):
-                    return html.Div("Invalid selection.", style={"color": "#b91c1c"})
+                    return no_update, html.Div("Invalid selection.", style={"color": "#b91c1c"})
                 row = table_data[idx]
                 user_id = int(row.get("id"))
                 desired_active = 1 if int(edit_active) == 1 else 0
                 desired_role = str(edit_role or row.get("role") or "user").strip().lower()
                 desired_password = (edit_password or "").strip()
 
-                # Prevent disabling the currently logged-in admin.
                 if str(user_id) == str(current_user_id) and desired_active == 0:
-                    return html.Div("You can't disable your own active admin account.", style={"color": "#b91c1c"})
+                    return no_update, html.Div(
+                        "You can't disable your own active admin account.",
+                        style={"color": "#b91c1c"},
+                    )
 
                 current_active = 1 if bool(row.get("is_active")) else 0
                 if desired_active != current_active:
@@ -838,17 +949,39 @@ def register_callbacks(app):
 
                 if desired_password:
                     set_user_password(db_path, user_id, desired_password)
-                set_user_scopes(
-                    db_path,
-                    user_id,
-                    edit_reports or [],
-                    sorted(_normalize_building_scope(edit_buildings or [])),
-                )
+                if desired_role != "admin":
+                    set_user_scopes(
+                        db_path,
+                        user_id,
+                        edit_reports or [],
+                        sorted(_normalize_building_scope(edit_buildings or [])),
+                    )
 
-                return html.Div("Changes saved.", style={"color": "#047857"})
+                return no_update, html.Div("Changes saved.", style={"color": "#047857"})
 
-            return no_update
+            if tid == "admin-delete-confirm":
+                if not delete_submit_clicks:
+                    raise PreventUpdate
+                if not selected_rows or not table_data:
+                    return no_update, html.Div("Select a user row first.", style={"color": "#b91c1c"})
+                idx = selected_rows[0]
+                if idx is None or idx >= len(table_data):
+                    return no_update, html.Div("Invalid selection.", style={"color": "#b91c1c"})
+                row = table_data[idx]
+                user_id = int(row.get("id"))
+                username = str(row.get("username") or "")
+
+                if str(user_id) == str(current_user_id):
+                    return no_update, html.Div("You can't delete your own account.", style={"color": "#b91c1c"})
+
+                delete_user(db_path, user_id)
+                return [], html.Div(f"User '{username}' deleted.", style={"color": "#047857"})
+
+            raise PreventUpdate
         except ValueError as e:
-            return html.Div(str(e), style={"color": "#b91c1c"})
+            return no_update, html.Div(str(e), style={"color": "#b91c1c"})
         except Exception:
-            return html.Div("Admin action failed. Check inputs and try again.", style={"color": "#b91c1c"})
+            return no_update, html.Div(
+                "Admin action failed. Check inputs and try again.",
+                style={"color": "#b91c1c"},
+            )

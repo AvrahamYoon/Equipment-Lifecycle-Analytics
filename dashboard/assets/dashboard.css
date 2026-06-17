@@ -842,6 +842,23 @@
   border-color: #cbd5e1;
 }
 
+.btn-danger {
+  padding: 10px 22px;
+  border-radius: var(--fm-radius-sm);
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.btn-danger:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
 .dash-spreadsheet-container .previous-next-container {
   padding: 10px 4px;
   font-size: 12px;

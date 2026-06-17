@@ -4,6 +4,19 @@ from dash import dcc, html, dash_table
 
 from dashboard import constants as C
 
+_REPORT_OPTIONS = [
+    {"label": "Overview", "value": "overview"},
+    {"label": "Replacement", "value": "replacement"},
+    {"label": "Order roster", "value": "orders"},
+    {"label": "Settings", "value": "settings"},
+]
+_ROLE_OPTIONS = [
+    {"label": "admin", "value": "admin"},
+    {"label": "co-admin", "value": "co-admin"},
+    {"label": "user", "value": "user"},
+]
+_DEFAULT_REPORTS = ["overview", "replacement", "orders", "settings"]
+
 
 def admin_page_body():
     muted = {"fontSize": 13, "color": C.COLOR_TEXT_SECONDARY, "lineHeight": 1.5, "maxWidth": 720}
@@ -40,7 +53,7 @@ def admin_page_body():
                         },
                     ),
                     html.P(
-                        "Add admin accounts, enable/disable users, and reset passwords.",
+                        "Create accounts, manage roles and permissions, reset passwords, or remove users.",
                         style=muted,
                     ),
                 ],
@@ -50,9 +63,11 @@ def admin_page_body():
                 dash_table.DataTable(
                     id="admin-users-table",
                     columns=[
+                        {"name": "#", "id": "display_id"},
                         {"name": "Username", "id": "username"},
                         {"name": "Role", "id": "role"},
-                        {"name": "Active", "id": "is_active"},
+                        {"name": "Active", "id": "active_label"},
+                        {"name": "Reports", "id": "reports_summary"},
                         {"name": "Created", "id": "created_at"},
                         {"name": "Last login", "id": "last_login_at"},
                     ],
@@ -84,17 +99,13 @@ def admin_page_body():
                         [
                             html.Div("Add user", style={"fontWeight": 800, "marginBottom": 12}),
                             html.Label("Username", style=label),
-                            dcc.Input(id="admin-add-username", type="text", placeholder="e.g. admin2", style=inp),
+                            dcc.Input(id="admin-add-username", type="text", placeholder="e.g. analyst1", style=inp),
                             html.Label("Password", style=label),
                             dcc.Input(id="admin-add-password", type="password", placeholder="Set password", style=inp),
                             html.Label("Role", style=label),
                             dcc.Dropdown(
                                 id="admin-add-role",
-                                options=[
-                                    {"label": "admin", "value": "admin"},
-                                    {"label": "co-admin", "value": "co-admin"},
-                                    {"label": "user", "value": "user"},
-                                ],
+                                options=_ROLE_OPTIONS,
                                 value="user",
                                 clearable=False,
                                 style={"fontSize": 13},
@@ -105,6 +116,26 @@ def admin_page_body():
                                 options=[{"label": "Active", "value": 1}, {"label": "Disabled", "value": 0}],
                                 value=1,
                                 inline=True,
+                            ),
+                            html.Label("Visible reports", style=label),
+                            dcc.Checklist(
+                                id="admin-add-reports",
+                                options=_REPORT_OPTIONS,
+                                value=list(_DEFAULT_REPORTS),
+                                inline=False,
+                            ),
+                            html.Label("Allowed buildings (empty = all)", style=label),
+                            dcc.Dropdown(
+                                id="admin-add-buildings",
+                                options=[],
+                                value=[],
+                                multi=True,
+                                placeholder="Select building/location values",
+                                style={"fontSize": 13},
+                            ),
+                            html.Div(
+                                id="admin-add-scope-hint",
+                                style={"fontSize": 12, "color": C.COLOR_TEXT_MUTED, "marginTop": 8},
                             ),
                             html.Button(
                                 "Add user",
@@ -119,6 +150,10 @@ def admin_page_body():
                     html.Div(
                         [
                             html.Div("Edit selected user", style={"fontWeight": 800, "marginBottom": 12}),
+                            html.Div(
+                                id="admin-edit-username",
+                                style={"fontSize": 13, "color": C.COLOR_TEXT_SECONDARY, "marginBottom": 10},
+                            ),
                             html.Label("Active", style=label),
                             dcc.RadioItems(
                                 id="admin-edit-active",
@@ -129,11 +164,7 @@ def admin_page_body():
                             html.Label("Role", style=label),
                             dcc.Dropdown(
                                 id="admin-edit-role",
-                                options=[
-                                    {"label": "admin", "value": "admin"},
-                                    {"label": "co-admin", "value": "co-admin"},
-                                    {"label": "user", "value": "user"},
-                                ],
+                                options=_ROLE_OPTIONS,
                                 value="user",
                                 clearable=False,
                                 style={"fontSize": 13},
@@ -148,13 +179,8 @@ def admin_page_body():
                             html.Label("Visible reports", style=label),
                             dcc.Checklist(
                                 id="admin-edit-reports",
-                                options=[
-                                    {"label": "Overview", "value": "overview"},
-                                    {"label": "Replacement", "value": "replacement"},
-                                    {"label": "Order roster", "value": "orders"},
-                                    {"label": "Settings", "value": "settings"},
-                                ],
-                                value=["overview", "replacement", "orders", "settings"],
+                                options=_REPORT_OPTIONS,
+                                value=list(_DEFAULT_REPORTS),
                                 inline=False,
                             ),
                             html.Label("Allowed buildings (empty = all)", style=label),
@@ -166,18 +192,37 @@ def admin_page_body():
                                 placeholder="Select building/location values",
                                 style={"fontSize": 13},
                             ),
-                            html.Button(
-                                "Save changes",
-                                id="admin-save-user-btn",
-                                n_clicks=0,
-                                className="btn-secondary",
-                                style={"marginTop": 14},
+                            html.Div(
+                                id="admin-edit-scope-hint",
+                                style={"fontSize": 12, "color": C.COLOR_TEXT_MUTED, "marginTop": 8},
+                            ),
+                            html.Div(
+                                [
+                                    html.Button(
+                                        "Save changes",
+                                        id="admin-save-user-btn",
+                                        n_clicks=0,
+                                        className="btn-secondary",
+                                    ),
+                                    html.Button(
+                                        "Delete user",
+                                        id="admin-delete-user-btn",
+                                        n_clicks=0,
+                                        className="btn-danger",
+                                        style={"marginLeft": 10},
+                                    ),
+                                ],
+                                style={"marginTop": 14, "display": "flex", "flexWrap": "wrap", "gap": 10},
                             ),
                         ],
                         style={**C.CARD_STYLE, "padding": "18px 20px", "flex": "1", "minWidth": 320},
                     ),
                 ],
                 style={"display": "flex", "gap": 16, "flexWrap": "wrap"},
+            ),
+            dcc.ConfirmDialog(
+                id="admin-delete-confirm",
+                message="Delete this user permanently? Their permissions will be removed and this cannot be undone.",
             ),
             html.Div(id="admin-message", style={"marginTop": 10, "fontSize": 13, "color": C.COLOR_TEXT_SECONDARY}),
         ],
