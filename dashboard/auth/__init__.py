@@ -1,6 +1,7 @@
 """Authentication helpers for dashboard app."""
 
 from dashboard.auth.store import (
+    create_user,
     delete_user,
     get_user_scopes,
     init_auth_db,
@@ -19,6 +20,7 @@ from dashboard.auth.web import configure_auth
 
 __all__ = [
     "configure_auth",
+    "create_user",
     "delete_user",
     "get_user_scopes",
     "init_auth_db",

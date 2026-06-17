@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 from dataclasses import dataclass
 
@@ -12,6 +13,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 DEFAULT_AUTH_DB = os.path.join("data", "auth", "users.db")
 VALID_ROLES = ("admin", "co-admin", "user")
 VALID_REPORTS = ("overview", "replacement", "orders", "settings")
+USERNAME_RE = re.compile(r"^[a-zA-Z0-9._-]{2,32}$")
+PASSWORD_RE = re.compile(r"^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{}:,.?/~]+$")
+PASSWORD_MIN_LEN = 8
+PASSWORD_MAX_LEN = 128
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,41 @@ def resolve_auth_db_path() -> str:
     """Resolve auth DB path from env or project default."""
     env_path = os.getenv("AUTH_DB_PATH", "").strip()
     return env_path or DEFAULT_AUTH_DB
+
+
+def validate_username(username: str) -> str:
+    """Normalize and validate a dashboard username."""
+    username = (username or "").strip()
+    if not USERNAME_RE.match(username):
+        raise ValueError(
+            "Username must be 2-32 characters and use only letters, numbers, . _ -"
+        )
+    return username
+
+
+def validate_password(password: str) -> str:
+    """Validate password length and allowed characters (parameterized queries handle SQL safely)."""
+    password = password or ""
+    if len(password) < PASSWORD_MIN_LEN:
+        raise ValueError(f"Password must be at least {PASSWORD_MIN_LEN} characters.")
+    if len(password) > PASSWORD_MAX_LEN:
+        raise ValueError(f"Password must be at most {PASSWORD_MAX_LEN} characters.")
+    if not PASSWORD_RE.match(password):
+        raise ValueError(
+            "Password may only use letters, numbers, and common symbols "
+            "(!@#$%^&*()_+-=[]{}:,.?/~)."
+        )
+    return password
+
+
+def username_exists(db_path: str, username: str) -> bool:
+    username = validate_username(username)
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM users WHERE username = ? COLLATE NOCASE",
+            (username,),
+        ).fetchone()
+    return row is not None
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -107,11 +147,8 @@ def init_auth_db(db_path: str) -> None:
 
 def upsert_admin(db_path: str, username: str, password: str) -> None:
     """Create or update an admin account (role is always 'admin')."""
-    username = (username or "").strip()
-    if not username:
-        raise ValueError("username cannot be empty")
-    if not password:
-        raise ValueError("password cannot be empty")
+    username = validate_username(username)
+    password = validate_password(password)
 
     pwd_hash = generate_password_hash(password)
     with _connect(db_path) as conn:
@@ -129,14 +166,33 @@ def upsert_admin(db_path: str, username: str, password: str) -> None:
         conn.commit()
 
 
+def create_user(db_path: str, username: str, password: str, role: str, is_active: bool = True) -> int:
+    """Create a new user. Raises if the username already exists."""
+    username = validate_username(username)
+    password = validate_password(password)
+    role = (role or "").strip().lower()
+    if role not in VALID_ROLES:
+        raise ValueError(f"invalid role: {role}")
+    if username_exists(db_path, username):
+        raise ValueError(f"Username '{username}' already exists.")
+    pwd_hash = generate_password_hash(password)
+    with _connect(db_path) as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_active)
+            VALUES (?, ?, ?, ?)
+            """,
+            (username, pwd_hash, role, 1 if is_active else 0),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+
 def upsert_user(db_path: str, username: str, password: str, role: str, is_active: bool = True) -> None:
     """Create or update any user role."""
-    username = (username or "").strip()
+    username = validate_username(username)
+    password = validate_password(password)
     role = (role or "").strip().lower()
-    if not username:
-        raise ValueError("username cannot be empty")
-    if not password:
-        raise ValueError("password cannot be empty")
     if role not in VALID_ROLES:
         raise ValueError(f"invalid role: {role}")
     pwd_hash = generate_password_hash(password)
@@ -218,9 +274,7 @@ def set_user_active(db_path: str, user_id: int, is_active: bool) -> None:
 def set_user_password(db_path: str, user_id: int, password: str) -> None:
     """Reset a user's password (admin-only MVP)."""
     user_id = int(user_id)
-    password = password or ""
-    if not password:
-        raise ValueError("password cannot be empty")
+    password = validate_password(password)
     pwd_hash = generate_password_hash(password)
     with _connect(db_path) as conn:
         conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (pwd_hash, user_id))

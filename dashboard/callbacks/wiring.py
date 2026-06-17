@@ -5,6 +5,7 @@ from dash.exceptions import PreventUpdate
 
 from dashboard import constants as C
 from dashboard.auth import (
+    create_user,
     delete_user,
     get_user_scopes,
     list_users,
@@ -13,7 +14,6 @@ from dashboard.auth import (
     set_user_active,
     set_user_password,
     set_user_role,
-    upsert_user,
 )
 from dashboard.data_loaders import (
     df_equip,
@@ -34,6 +34,15 @@ from flask import session as flask_session
 
 
 _REPORT_KEYS = ("overview", "replacement", "orders", "settings")
+_ADD_FORM_DEFAULTS = ("", "", "user", 1, list(_REPORT_KEYS), [])
+
+
+def _hold_add_form():
+    return (no_update, no_update, no_update, no_update, no_update, no_update)
+
+
+def _reset_add_form():
+    return _ADD_FORM_DEFAULTS
 
 
 def _format_row_count(filtered: int, total: int, item_singular: str):
@@ -855,6 +864,12 @@ def register_callbacks(app):
     @app.callback(
         Output("admin-users-table", "selected_rows"),
         Output("admin-message", "children", allow_duplicate=True),
+        Output("admin-add-username", "value"),
+        Output("admin-add-password", "value"),
+        Output("admin-add-role", "value"),
+        Output("admin-add-active", "value"),
+        Output("admin-add-reports", "value"),
+        Output("admin-add-buildings", "value"),
         Input("admin-add-user-btn", "n_clicks"),
         Input("admin-save-user-btn", "n_clicks"),
         Input("admin-delete-confirm", "submit_n_clicks"),
@@ -905,29 +920,41 @@ def register_callbacks(app):
                 password = add_password or ""
                 role = str(add_role or "user").strip().lower()
                 if not username or not password:
-                    return no_update, html.Div("Username and password are required.", style={"color": "#b91c1c"})
+                    return (
+                        no_update,
+                        html.Div("Username and password are required.", style={"color": "#b91c1c"}),
+                        *_hold_add_form(),
+                    )
                 is_active = 1 if int(add_active) == 1 else 0
 
-                upsert_user(db_path, username, password, role, is_active=bool(is_active))
-                user_row = next(
-                    (u for u in list_users(db_path) if str(u.get("username")) == username),
-                    None,
-                )
-                if user_row and role != "admin":
+                user_id = create_user(db_path, username, password, role, is_active=bool(is_active))
+                if role != "admin":
                     set_user_scopes(
                         db_path,
-                        int(user_row["id"]),
+                        user_id,
                         add_reports or [],
                         sorted(_normalize_building_scope(add_buildings or [])),
                     )
-                return no_update, html.Div(f"User '{username}' added/updated.", style={"color": "#047857"})
+                return (
+                    no_update,
+                    html.Div(f"User '{username}' created.", style={"color": "#047857"}),
+                    *_reset_add_form(),
+                )
 
             if tid == "admin-save-user-btn":
                 if not selected_rows or not table_data:
-                    return no_update, html.Div("Select a user row first.", style={"color": "#b91c1c"})
+                    return (
+                        no_update,
+                        html.Div("Select a user row first.", style={"color": "#b91c1c"}),
+                        *_hold_add_form(),
+                    )
                 idx = selected_rows[0]
                 if idx is None or idx >= len(table_data):
-                    return no_update, html.Div("Invalid selection.", style={"color": "#b91c1c"})
+                    return (
+                        no_update,
+                        html.Div("Invalid selection.", style={"color": "#b91c1c"}),
+                        *_hold_add_form(),
+                    )
                 row = table_data[idx]
                 user_id = int(row.get("id"))
                 desired_active = 1 if int(edit_active) == 1 else 0
@@ -935,9 +962,13 @@ def register_callbacks(app):
                 desired_password = (edit_password or "").strip()
 
                 if str(user_id) == str(current_user_id) and desired_active == 0:
-                    return no_update, html.Div(
-                        "You can't disable your own active admin account.",
-                        style={"color": "#b91c1c"},
+                    return (
+                        no_update,
+                        html.Div(
+                            "You can't disable your own active admin account.",
+                            style={"color": "#b91c1c"},
+                        ),
+                        *_hold_add_form(),
                     )
 
                 current_active = 1 if bool(row.get("is_active")) else 0
@@ -957,31 +988,55 @@ def register_callbacks(app):
                         sorted(_normalize_building_scope(edit_buildings or [])),
                     )
 
-                return no_update, html.Div("Changes saved.", style={"color": "#047857"})
+                return (
+                    no_update,
+                    html.Div("Changes saved.", style={"color": "#047857"}),
+                    *_hold_add_form(),
+                )
 
             if tid == "admin-delete-confirm":
                 if not delete_submit_clicks:
                     raise PreventUpdate
                 if not selected_rows or not table_data:
-                    return no_update, html.Div("Select a user row first.", style={"color": "#b91c1c"})
+                    return (
+                        no_update,
+                        html.Div("Select a user row first.", style={"color": "#b91c1c"}),
+                        *_hold_add_form(),
+                    )
                 idx = selected_rows[0]
                 if idx is None or idx >= len(table_data):
-                    return no_update, html.Div("Invalid selection.", style={"color": "#b91c1c"})
+                    return (
+                        no_update,
+                        html.Div("Invalid selection.", style={"color": "#b91c1c"}),
+                        *_hold_add_form(),
+                    )
                 row = table_data[idx]
                 user_id = int(row.get("id"))
                 username = str(row.get("username") or "")
 
                 if str(user_id) == str(current_user_id):
-                    return no_update, html.Div("You can't delete your own account.", style={"color": "#b91c1c"})
+                    return (
+                        no_update,
+                        html.Div("You can't delete your own account.", style={"color": "#b91c1c"}),
+                        *_hold_add_form(),
+                    )
 
                 delete_user(db_path, user_id)
-                return [], html.Div(f"User '{username}' deleted.", style={"color": "#047857"})
+                return (
+                    [],
+                    html.Div(f"User '{username}' deleted.", style={"color": "#047857"}),
+                    *_hold_add_form(),
+                )
 
             raise PreventUpdate
         except ValueError as e:
-            return no_update, html.Div(str(e), style={"color": "#b91c1c"})
+            return no_update, html.Div(str(e), style={"color": "#b91c1c"}), *_hold_add_form()
         except Exception:
-            return no_update, html.Div(
-                "Admin action failed. Check inputs and try again.",
-                style={"color": "#b91c1c"},
+            return (
+                no_update,
+                html.Div(
+                    "Admin action failed. Check inputs and try again.",
+                    style={"color": "#b91c1c"},
+                ),
+                *_hold_add_form(),
             )

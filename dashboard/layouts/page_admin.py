@@ -38,6 +38,9 @@ def admin_page_body():
         "fontFamily": "inherit",
         "boxSizing": "border-box",
     }
+    field_hint = {"fontSize": 11, "color": C.COLOR_TEXT_MUTED, "marginTop": 4, "marginBottom": 10, "display": "block"}
+    password_hint = "8-128 characters; letters, numbers, and common symbols only."
+    username_hint = "2-32 characters; letters, numbers, . _ - only."
 
     return html.Div(
         [
@@ -100,8 +103,10 @@ def admin_page_body():
                             html.Div("Add user", style={"fontWeight": 800, "marginBottom": 12}),
                             html.Label("Username", style=label),
                             dcc.Input(id="admin-add-username", type="text", placeholder="e.g. analyst1", style=inp),
+                            html.Span(username_hint, style=field_hint),
                             html.Label("Password", style=label),
                             dcc.Input(id="admin-add-password", type="password", placeholder="Set password", style=inp),
+                            html.Span(password_hint, style=field_hint),
                             html.Label("Role", style=label),
                             dcc.Dropdown(
                                 id="admin-add-role",
@@ -176,6 +181,7 @@ def admin_page_body():
                                 placeholder="Leave blank to keep password",
                                 style=inp,
                             ),
+                            html.Span(password_hint, style=field_hint),
                             html.Label("Visible reports", style=label),
                             dcc.Checklist(
                                 id="admin-edit-reports",
