@@ -20,6 +20,7 @@ from dashboard.data_loaders import df_equip, df_req, df_repairs, df_service
 from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.kpis import compute_kpi_values
 from dashboard.logic.service_scope import prepare_service_for_display
+from dashboard.export.chart_text import plain_chart_text, sanitize_figure_for_export
 from dashboard.session_scope import apply_building_scope
 
 
@@ -63,12 +64,14 @@ def _is_placeholder_figure(fig: go.Figure) -> bool:
 def _figure_title(fig: go.Figure, fallback: str) -> str:
     title = fig.layout.title
     if title is not None and title.text:
-        return str(title.text).strip()
+        plain = plain_chart_text(str(title.text))
+        if plain:
+            return plain
     return fallback
 
 
 def _figure_to_png(fig: go.Figure, *, width: int, height: int, scale: int = 2) -> bytes:
-    export_fig = go.Figure(fig)
+    export_fig = sanitize_figure_for_export(fig)
     export_fig.update_layout(
         paper_bgcolor="#ffffff",
         plot_bgcolor="#ffffff",
