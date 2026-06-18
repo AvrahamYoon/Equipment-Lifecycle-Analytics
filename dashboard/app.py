@@ -5,6 +5,7 @@ from dash import Dash
 from dashboard import constants as C
 from dashboard.auth import configure_auth
 from dashboard.callbacks.wiring import register_callbacks
+from dashboard.export import configure_exports
 from dashboard.data_loaders import MONTH_OPTIONS, all_months
 from dashboard.layouts.app_shell import build_root_layout
 
@@ -15,6 +16,7 @@ def create_app() -> Dash:
     app = Dash(__name__, update_title=None)
     app.title = "Work Order Dashboard"
     configure_auth(app)
+    configure_exports(app)
     # Default to the aggregate "All months" view when we have any data so the
     # dashboard lands on something useful; fall back to a single month if
     # somehow only one is loaded; finally None for a totally empty dataset.

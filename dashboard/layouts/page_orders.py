@@ -165,6 +165,7 @@ def order_roster_page_body():
                 row_count_id="order-row-count",
                 page_size_id="order-page-size",
                 item_label="service lines",
+                export_link_id="order-export-pdf",
             ),
             html.Div(
                 [

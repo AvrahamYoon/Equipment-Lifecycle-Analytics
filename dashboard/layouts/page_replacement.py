@@ -261,6 +261,7 @@ def replacement_page_body():
                 row_count_id="replace-row-count",
                 page_size_id="replace-page-size",
                 item_label="equipment items",
+                export_link_id="replace-export-pdf",
             ),
             html.Div(
                 [

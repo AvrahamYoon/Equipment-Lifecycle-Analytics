@@ -19,7 +19,7 @@ Badges from [Shields.io](https://shields.io/) (`style=flat`).
 ## Requirements
 
 ```bash
-pip install dash pandas plotly duckdb
+pip install dash pandas plotly duckdb reportlab
 ```
 
 Python 3.10+ recommended.
@@ -145,6 +145,8 @@ Standalone scripts: equipment list cleanup plus row-format converters for reques
 - **Replacement** (`/replacement`) — Ignores the month dropdown; always cumulative across every repair file under `data/repairs/`.
 - **Order roster** (`/orders`) — Service lines for the selected month scope; filters for class, status, equipment text, and ID.
 - **Settings** — Mostly Overview-only; staff capacity can be overridden per calendar month. Preferences persist in the browser (Apply / Reset).
+
+Each table page includes an **Export PDF** button that downloads the currently filtered rows (same data as on screen) via ReportLab.
 
 ---
 

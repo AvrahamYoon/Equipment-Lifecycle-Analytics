@@ -787,6 +787,35 @@
   font-weight: 800;
 }
 
+.table-info-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pdf-export-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--fm-border);
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  color: var(--fm-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--fm-shadow-sm);
+  white-space: nowrap;
+}
+
+.pdf-export-link:hover {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #1d4ed8;
+}
+
 .table-info-bar .page-size-wrap {
   display: inline-flex;
   align-items: center;

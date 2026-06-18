@@ -1,5 +1,7 @@
 """Register Dash callbacks."""
 
+from urllib.parse import urlencode
+
 from dash import Input, Output, State, callback_context, html, no_update
 from dash.exceptions import PreventUpdate
 
@@ -29,12 +31,17 @@ from dashboard.logic.repair_orders_table import build_repair_orders_table, repai
 from dashboard.logic.replacement_table import build_replacement_table
 from dashboard.logic.request_roster_table import build_request_roster_table
 from dashboard.logic.service_scope import prepare_service_for_display
+from dashboard.session_scope import (
+    REPORT_KEYS,
+    allowed_reports_for_session,
+    apply_building_scope,
+    normalize_building_scope,
+)
 
 from flask import session as flask_session
 
 
-_REPORT_KEYS = ("overview", "replacement", "orders", "settings")
-_ADD_FORM_DEFAULTS = ("", "", "user", 1, list(_REPORT_KEYS), [])
+_ADD_FORM_DEFAULTS = ("", "", "user", 1, list(REPORT_KEYS), [])
 
 
 def _hold_add_form():
@@ -66,42 +73,12 @@ def _empty_state_style(visible: bool) -> dict:
     return {"display": "flex"} if visible else {"display": "none"}
 
 
-def _allowed_reports_for_session() -> set[str]:
-    role = str(flask_session.get("role") or "")
-    if role == "admin":
-        return set(_REPORT_KEYS)
-    if "allowed_reports" not in flask_session:
-        return set(_REPORT_KEYS)
-    values = flask_session.get("allowed_reports") or []
-    return {str(v).strip().lower() for v in values if str(v).strip()}
-
-
-def _normalize_building_scope(values) -> set[str]:
-    out: set[str] = set()
-    for v in values or []:
-        nv = normalize_building_value(v)
-        if nv:
-            out.add(nv)
-    return out
-
-
-def _apply_building_scope(df):
-    allowed = _normalize_building_scope(flask_session.get("allowed_buildings") or [])
-    if not allowed:
-        return df
-    for col in ("location", "Location", "building", "Building", "site", "Site"):
-        if col in df.columns:
-            normalized = df[col].map(normalize_building_value)
-            return df[normalized.isin(allowed)]
-    return df
-
-
 def _building_options_from_data() -> list[dict]:
     vals: set[str] = set()
     for df in (df_repairs, df_service, df_req):
         for col in ("location", "Location", "building", "Building", "site", "Site"):
             if col in df.columns:
-                vals.update(_normalize_building_scope(df[col].dropna().tolist()))
+                vals.update(normalize_building_scope(df[col].dropna().tolist()))
     return [{"label": v, "value": v} for v in sorted(vals)]
 
 
@@ -109,8 +86,8 @@ def _reports_summary_for_user(db_path: str, user_id: int, role: str) -> str:
     if str(role or "").lower() == "admin":
         return "All"
     scopes = get_user_scopes(db_path, int(user_id))
-    reports = scopes.get("reports") or list(_REPORT_KEYS)
-    if len(reports) >= len(_REPORT_KEYS):
+    reports = scopes.get("reports") or list(REPORT_KEYS)
+    if len(reports) >= len(REPORT_KEYS):
         return "All"
     return ", ".join(reports) if reports else "None"
 
@@ -176,7 +153,7 @@ def register_callbacks(app):
         on_set = pathname == "/settings"
         on_admin = pathname == "/admin"
         role = str(flask_session.get("role") or "")
-        allowed_reports = _allowed_reports_for_session()
+        allowed_reports = allowed_reports_for_session()
         can_overview = "overview" in allowed_reports
         can_replacement = "replacement" in allowed_reports
         can_orders = "orders" in allowed_reports
@@ -256,7 +233,7 @@ def register_callbacks(app):
     )
     def update_overview(month_key, settings_data):
         rep_all = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
-        rep_all = _apply_building_scope(rep_all)
+        rep_all = apply_building_scope(rep_all)
         all_months = C.is_all_months(month_key)
         if all_months:
             req = df_req[df_req["month_key"].astype(str) != "NaT"]
@@ -266,9 +243,9 @@ def register_callbacks(app):
             req = df_req[df_req["month_key"] == month_key]
             svc = df_service[df_service["month_key"] == month_key]
             rep = df_repairs[df_repairs["month_key"] == month_key]
-        req = _apply_building_scope(req)
-        svc = _apply_building_scope(svc)
-        rep = _apply_building_scope(rep)
+        req = apply_building_scope(req)
+        svc = apply_building_scope(svc)
+        rep = apply_building_scope(rep)
         svc = prepare_service_for_display(svc, month_key, df_service)
         out = build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
         primary_budget, secondary_budget = out[9], out[10]
@@ -298,7 +275,7 @@ def register_callbacks(app):
         turnaround_click,
         availability_click,
     ):
-        allowed = _allowed_reports_for_session()
+        allowed = allowed_reports_for_session()
         triggered = callback_context.triggered_id
 
         if triggered == "calendar-chart":
@@ -472,7 +449,7 @@ def register_callbacks(app):
         # Replacement is always **cumulative**: every repair row from every
         # loaded month (header month scope applies only to Overview & Order roster).
         rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
-        rep = _apply_building_scope(rep)
+        rep = apply_building_scope(rep)
         rep_filters = {
             "status": rep_status or "All",
             "category": rep_category or "",
@@ -523,7 +500,7 @@ def register_callbacks(app):
             svc = df_service[df_service["month_key"].astype(str) != "NaT"]
         else:
             svc = df_service[df_service["month_key"] == month_key]
-        svc = _apply_building_scope(svc)
+        svc = apply_building_scope(svc)
         svc = prepare_service_for_display(svc, month_key, df_service)
         order_filters = {
             "category": order_cat or "",
@@ -570,7 +547,7 @@ def register_callbacks(app):
             req = df_req[df_req["month_key"].astype(str) != "NaT"]
         else:
             req = df_req[df_req["month_key"] == month_key]
-        req = _apply_building_scope(req)
+        req = apply_building_scope(req)
         req_filters = {
             "day": str(filter_day).strip() if filter_day is not None else "",
             "work_order_substr": filter_wo or "",
@@ -587,6 +564,62 @@ def register_callbacks(app):
             _format_row_count(len(rdata), total, "request"),
             _empty_state_style(len(rdata) == 0),
         )
+
+    @app.callback(
+        Output("replace-export-pdf", "href"),
+        Input("replace-filter-status", "value"),
+        Input("replace-filter-category", "value"),
+        Input("replace-filter-building", "value"),
+        Input("replace-filter-repair-count", "value"),
+        Input("replace-filter-equipment", "value"),
+        Input("replace-filter-id", "value"),
+    )
+    def replace_export_href(rep_status, rep_category, rep_building, rep_repair_count, rep_equip, rep_id):
+        params = {
+            "status": rep_status or "All",
+            "category": rep_category or "",
+            "building": rep_building or "",
+            "repair_count_bin": rep_repair_count or "",
+            "equipment": rep_equip or "",
+            "id": rep_id or "",
+        }
+        return "/export/replacement.pdf?" + urlencode(params)
+
+    @app.callback(
+        Output("order-export-pdf", "href"),
+        Input("month-select", "value"),
+        Input("order-filter-category", "value"),
+        Input("order-filter-status", "value"),
+        Input("order-filter-equipment", "value"),
+        Input("order-filter-id", "value"),
+    )
+    def order_export_href(month_key, order_cat, order_status, order_equip, order_id):
+        params = {
+            "month": month_key or C.ALL_MONTHS_KEY,
+            "category": order_cat or "",
+            "status": order_status or "",
+            "equipment": order_equip or "",
+            "id": order_id or "",
+        }
+        return "/export/orders.pdf?" + urlencode(params)
+
+    @app.callback(
+        Output("request-export-pdf", "href"),
+        Input("month-select", "value"),
+        Input("request-filter-day", "value"),
+        Input("request-filter-work-order", "value"),
+        Input("request-filter-requestor", "value"),
+        Input("request-filter-text", "value"),
+    )
+    def request_export_href(month_key, filter_day, filter_wo, filter_requestor, filter_text):
+        params = {
+            "month": month_key or C.ALL_MONTHS_KEY,
+            "day": str(filter_day).strip() if filter_day is not None else "",
+            "work_order": filter_wo or "",
+            "requestor": filter_requestor or "",
+            "request": filter_text or "",
+        }
+        return "/export/requests.pdf?" + urlencode(params)
 
     @app.callback(
         Output("order-filter-category", "value"),
@@ -858,19 +891,19 @@ def register_callbacks(app):
     )
     def sync_admin_edit_fields(selected_rows, table_data):
         if not selected_rows or not table_data:
-            return 1, "user", "", list(_REPORT_KEYS), [], "Select a user row to edit."
+            return 1, "user", "", list(REPORT_KEYS), [], "Select a user row to edit."
         idx = selected_rows[0]
         if idx is None or idx >= len(table_data):
-            return 1, "user", "", list(_REPORT_KEYS), [], "Select a user row to edit."
+            return 1, "user", "", list(REPORT_KEYS), [], "Select a user row to edit."
         row = table_data[idx]
         active = 1 if bool(row.get("is_active")) else 0
         role = str(row.get("role") or "user")
         username = str(row.get("username") or "")
         db_path = resolve_auth_db_path()
         scopes = get_user_scopes(db_path, int(row.get("id")))
-        reports = scopes.get("reports") or list(_REPORT_KEYS)
+        reports = scopes.get("reports") or list(REPORT_KEYS)
         buildings = scopes.get("buildings") or []
-        reports_label = "All" if role == "admin" or len(reports) >= len(_REPORT_KEYS) else (
+        reports_label = "All" if role == "admin" or len(reports) >= len(REPORT_KEYS) else (
             ", ".join(reports) if reports else "None"
         )
         buildings_label = "All" if role == "admin" else _buildings_scope_label(buildings)
@@ -995,7 +1028,7 @@ def register_callbacks(app):
                         db_path,
                         user_id,
                         add_reports or [],
-                        sorted(_normalize_building_scope(add_buildings or [])),
+                        sorted(normalize_building_scope(add_buildings or [])),
                     )
                 return (
                     no_update,
@@ -1047,7 +1080,7 @@ def register_callbacks(app):
                         db_path,
                         user_id,
                         edit_reports or [],
-                        sorted(_normalize_building_scope(edit_buildings or [])),
+                        sorted(normalize_building_scope(edit_buildings or [])),
                     )
 
                 return (

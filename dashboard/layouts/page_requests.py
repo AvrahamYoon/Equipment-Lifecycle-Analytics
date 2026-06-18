@@ -143,6 +143,7 @@ def request_roster_page_body():
                 row_count_id="request-row-count",
                 page_size_id="request-page-size",
                 item_label="requests",
+                export_link_id="request-export-pdf",
             ),
             html.Div(
                 [
