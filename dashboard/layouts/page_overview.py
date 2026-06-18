@@ -2,180 +2,72 @@
 
 from dash import dcc, html
 
-from dashboard import constants as C
+
+def _chart_card(graph_id: str, *, wide: bool = False, tall: bool = False, wrap_id: str | None = None):
+    card_class = "overview-chart-card overview-chart-card--span-2" if wide else "overview-chart-card overview-chart-card--span-1"
+    graph_class = "overview-graph overview-graph--tall" if tall else "overview-graph"
+    card_kwargs = {"className": f"{card_class} lift-on-hover"}
+    if wrap_id:
+        card_kwargs["id"] = wrap_id
+    return html.Div(
+        [
+            dcc.Graph(
+                id=graph_id,
+                config={"displayModeBar": False, "responsive": True},
+                className=graph_class,
+                style={"height": "100%", "width": "100%"},
+            ),
+        ],
+        **card_kwargs,
+    )
 
 
 def overview_page_body():
     return html.Div(
         [
+            html.Div(id="kpi-row"),
             html.Div(
-                id="kpi-row",
-                style={"display": "flex", "flexWrap": "wrap", "gap": 16, "marginBottom": 22},
+                [
+                    _chart_card("hours-chart", wide=True),
+                    _chart_card("calendar-chart", wide=True),
+                ],
+                className="overview-grid",
             ),
             html.Div(
                 [
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="hours-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 280},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="calendar-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 280},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
-                    ),
+                    _chart_card("monthly-parts-budget-chart"),
+                    _chart_card("annual-parts-budget-chart", wrap_id="annual-parts-budget-wrap"),
+                    _chart_card("repair-count-mix-chart", wrap_id="repair-count-mix-wrap"),
+                    _chart_card("building-hours-chart", wide=True, tall=True),
                 ],
-                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
+                className="overview-grid",
             ),
             html.Div(
                 [
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="monthly-parts-budget-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 280},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="annual-parts-budget-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 280},
-                            ),
-                        ],
-                        id="annual-parts-budget-wrap",
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="repair-count-mix-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 280},
-                            ),
-                        ],
-                        id="repair-count-mix-wrap",
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="building-hours-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 300},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 12px 8px"},
-                    ),
+                    _chart_card("completion-gauge"),
+                    _chart_card("avghours-gauge"),
+                    _chart_card("staff-chart", wide=True),
                 ],
-                style={
-                    "display": "grid",
-                    "gridTemplateColumns": "repeat(4, 1fr)",
-                    "gap": 16,
-                    "marginBottom": 20,
-                },
+                className="overview-grid",
             ),
             html.Div(
                 [
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="completion-gauge",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 260},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="avghours-gauge",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 260},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="staff-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 260},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
-                    ),
+                    _chart_card("turnaround-chart", wide=True, tall=True),
+                    _chart_card("availability-chart", wide=True, tall=True),
                 ],
-                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
-            ),
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="turnaround-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 320},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
-                    ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id="availability-chart",
-                                config={"displayModeBar": False, "responsive": True},
-                                style={"height": 320},
-                            ),
-                        ],
-                        className="lift-on-hover",
-                        style={**C.CARD_STYLE, "gridColumn": "span 2", "padding": "16px 8px 8px"},
-                    ),
-                ],
-                style={"display": "grid", "gridTemplateColumns": "repeat(4, 1fr)", "gap": 16, "marginBottom": 20},
+                className="overview-grid",
             ),
             html.Div(
                 id="footer-text",
                 style={
                     "textAlign": "center",
                     "fontSize": 11,
-                    "color": C.COLOR_TEXT_MUTED,
+                    "color": "#94a3b8",
                     "paddingBottom": 8,
                 },
             ),
         ],
         id="page-overview",
-        style={
-            "display": "block",
-            "padding": "28px 36px 40px",
-            "maxWidth": 1440,
-            "margin": "0 auto",
-            "minWidth": 0,
-        },
+        className="app-page app-page--wide",
+        style={"display": "block"},
     )

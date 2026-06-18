@@ -233,11 +233,6 @@ def admin_page_body():
             html.Div(id="admin-message", style={"marginTop": 10, "fontSize": 13, "color": C.COLOR_TEXT_SECONDARY}),
         ],
         id="page-admin",
-        style={
-            "display": "none",
-            "padding": "24px 28px 40px",
-            "maxWidth": 1280,
-            "margin": "0 auto",
-            "minWidth": 0,
-        },
+        className="app-page app-page--standard",
+        style={"display": "none"},
     )

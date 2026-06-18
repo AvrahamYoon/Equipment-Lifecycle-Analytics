@@ -176,11 +176,6 @@ def request_roster_page_body():
             ),
         ],
         id="page-requests",
-        style={
-            "display": "none",
-            "padding": "28px 36px 40px",
-            "maxWidth": 1280,
-            "margin": "0 auto",
-            "minWidth": 0,
-        },
+        className="app-page app-page--standard",
+        style={"display": "none"},
     )

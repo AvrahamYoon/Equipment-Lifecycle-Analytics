@@ -182,15 +182,8 @@ def register_callbacks(app):
         can_orders = "orders" in allowed_reports
         can_requests = can_overview
         can_settings = "settings" in allowed_reports
-        # Keep each page's intended outer spacing. The corresponding page
-        # bodies in `dashboard/layouts/shell.py` already define padding and
-        # maxWidth, but this callback overwrites the full `style` dict.
-        page_overview = {"padding": "28px 36px 40px", "maxWidth": 1440, "margin": "0 auto", "minWidth": 0}
-        page_replacement = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
-        page_orders = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
-        page_requests = {"padding": "28px 36px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
-        page_settings = {"padding": "24px 28px", "maxWidth": 1240, "margin": "0 auto", "minWidth": 0}
-        page_admin = {"padding": "24px 28px 40px", "maxWidth": 1280, "margin": "0 auto", "minWidth": 0}
+        # Layout spacing lives in CSS (`.app-page`); callback only toggles visibility.
+        page_show = {"display": "block"}
 
         def nav_item(active: bool):
             return {
@@ -228,12 +221,12 @@ def register_callbacks(app):
                 on_set = True
                 ov = False
         return (
-            {**page_overview, "display": "block" if ov and can_overview else "none"},
-            {**page_replacement, "display": "block" if on_rep and can_replacement else "none"},
-            {**page_orders, "display": "block" if on_ord and can_orders else "none"},
-            {**page_requests, "display": "block" if on_req and can_requests else "none"},
-            {**page_settings, "display": "block" if on_set and can_settings else "none"},
-            {**page_admin, "display": "block" if on_admin and role == "admin" else "none"},
+            {**page_show, "display": "block" if ov and can_overview else "none"},
+            {**page_show, "display": "block" if on_rep and can_replacement else "none"},
+            {**page_show, "display": "block" if on_ord and can_orders else "none"},
+            {**page_show, "display": "block" if on_req and can_requests else "none"},
+            {**page_show, "display": "block" if on_set and can_settings else "none"},
+            {**page_show, "display": "block" if on_admin and role == "admin" else "none"},
             ({**nav_item(ov), "display": "block"} if can_overview else {"display": "none"}),
             ({**nav_item(on_rep), "display": "block"} if can_replacement else {"display": "none"}),
             ({**nav_item(on_ord), "display": "block"} if can_orders else {"display": "none"}),
@@ -279,11 +272,8 @@ def register_callbacks(app):
         svc = prepare_service_for_display(svc, month_key, df_service)
         out = build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
         primary_budget, secondary_budget = out[9], out[10]
-        _square = {**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"}
-        # Second slot is annual-only in legacy layout; keep hidden — monthly mode shows
-        # monthly budget + repair-count mix + building hours (same trio as All months).
-        annual_wrap = {**_square, "display": "none"}
-        repair_wrap = {**_square, "display": "block"}
+        annual_wrap = {"display": "none"}
+        repair_wrap = {"display": "block"}
         annual_fig = (
             secondary_budget if secondary_budget is not None else build_hidden_chart_placeholder()
         )

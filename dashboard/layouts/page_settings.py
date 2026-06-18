@@ -240,11 +240,6 @@ def settings_page_body():
             ),
         ],
         id="page-settings",
-        style={
-            "display": "none",
-            "padding": "24px 28px",
-            "maxWidth": 1240,
-            "margin": "0 auto",
-            "minWidth": 0,
-        },
+        className="app-page app-page--settings",
+        style={"display": "none"},
     )
