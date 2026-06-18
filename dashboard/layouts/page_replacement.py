@@ -3,6 +3,7 @@
 from dash import dcc, html, dash_table
 
 from dashboard import constants as C
+from dashboard.logic.repair_count_bins import REPAIR_COUNT_BIN_LABELS
 from valuation import PRICE_BASIS_TOOLTIP
 from dashboard.layouts.page_common import table_info_bar
 
@@ -52,7 +53,7 @@ def replacement_page_body():
                 [
                     html.Span(
                         id="replace-page-title-icon",
-                        children=d["iconReplaceTitle"],
+                        children=d["iconNavReplacement"],
                         style={"fontSize": 26, "marginRight": 14, "lineHeight": 1},
                     ),
                     html.Div(
@@ -172,6 +173,20 @@ def replacement_page_body():
                         ),
                     ],
                     style={"minWidth": 200},
+                ),
+                html.Div(
+                    [
+                        html.Label("Repair count", **flabel),
+                        dcc.Dropdown(
+                            id="replace-filter-repair-count",
+                            options=[{"label": "Any", "value": ""}]
+                            + [{"label": b, "value": b} for b in REPAIR_COUNT_BIN_LABELS],
+                            value="",
+                            clearable=False,
+                            style={"minWidth": 160, "fontFamily": "inherit", "fontSize": 13},
+                        ),
+                    ],
+                    style={"minWidth": 160},
                 ),
                 html.Div(
                     [

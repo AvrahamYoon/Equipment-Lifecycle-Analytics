@@ -9,6 +9,7 @@ import pandas as pd
 from dashboard import constants as C
 from valuation import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
 from dashboard.logic.buildings import normalize_building_value
+from dashboard.logic.repair_count_bins import equip_ids_for_repair_count_bin
 
 _MARKDOWN_COLS = frozenset({"Status", PRICE_BASIS_COLUMN})
 
@@ -59,6 +60,14 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     bld_f = (filters.get("building") or "").strip()
     if bld_f:
         rep = rep[rep["_building_norm"].astype(str) == bld_f]
+
+    bin_f = (filters.get("repair_count_bin") or "").strip()
+    if bin_f:
+        allowed = equip_ids_for_repair_count_bin(rep, bin_f)
+        if not allowed:
+            rep = rep.iloc[0:0]
+        else:
+            rep = rep[rep["equipIdNorm"].astype(str).isin(allowed)]
 
     group_col = "equipIdNorm"
 

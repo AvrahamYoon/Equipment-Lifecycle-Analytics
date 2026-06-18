@@ -39,7 +39,7 @@ def request_roster_page_body():
                 [
                     html.Span(
                         id="request-page-title-icon",
-                        children=d.get("iconNavRequests", d["iconKpiRequests"]),
+                        children=d["iconNavRequests"],
                         style={"fontSize": 26, "marginRight": 14, "lineHeight": 1},
                     ),
                     html.Div(

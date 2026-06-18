@@ -149,15 +149,10 @@ def build_overview(
         period = pd.Period(str(month_key))
         mo_note = f"{period.strftime('%b %Y')} · ${mo_spent:,.0f} / ${mo_cap:,.0f}"
         mo_title = "Monthly parts budget"
-        yr = int(period.year)
-        yr_rep = _rep_for_calendar_year(rep_full, yr)
-        yr_spent = _parts_spend(yr_rep)
-        yr_cap = annual_budget
-        yr_note = f"{yr} · ${yr_spent:,.0f} / ${yr_cap:,.0f}"
-        yr_title = "Annual parts budget"
         primary_budget_fig = build_parts_budget_donut_figure(mo_spent, mo_cap, mo_title, mo_note)
-        secondary_budget_fig = build_parts_budget_donut_figure(yr_spent, yr_cap, yr_title, yr_note)
-    repair_count_fig = build_repair_count_distribution_figure(rep)
+        secondary_budget_fig = None
+    repair_scope = "All loaded months" if all_months_mode else pd.Period(str(month_key)).strftime("%b %Y")
+    repair_count_fig = build_repair_count_distribution_figure(rep, scope_note=repair_scope)
     building_hours_fig = build_repair_hours_by_building_figure(rep)
 
     return (

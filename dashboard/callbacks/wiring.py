@@ -280,8 +280,10 @@ def register_callbacks(app):
         out = build_overview(month_key, req, svc, rep, df_equip, settings_data, rep_full=rep_all)
         primary_budget, secondary_budget = out[9], out[10]
         _square = {**C.CARD_STYLE, "gridColumn": "span 1", "padding": "16px 8px 8px"}
-        annual_wrap = {**_square, "display": "none" if all_months else "block"}
-        repair_wrap = {**_square, "display": "block" if all_months else "none"}
+        # Second slot is annual-only in legacy layout; keep hidden — monthly mode shows
+        # monthly budget + repair-count mix + building hours (same trio as All months).
+        annual_wrap = {**_square, "display": "none"}
+        repair_wrap = {**_square, "display": "block"}
         annual_fig = (
             secondary_budget if secondary_budget is not None else build_hidden_chart_placeholder()
         )
@@ -293,9 +295,19 @@ def register_callbacks(app):
         Input("hours-chart", "clickData"),
         Input("building-hours-chart", "clickData"),
         Input("calendar-chart", "clickData"),
+        Input("repair-count-mix-chart", "clickData"),
+        Input("turnaround-chart", "clickData"),
+        Input("availability-chart", "clickData"),
         prevent_initial_call=True,
     )
-    def drill_from_overview_charts(hours_click, building_click, calendar_click):
+    def drill_from_overview_charts(
+        hours_click,
+        building_click,
+        calendar_click,
+        repair_mix_click,
+        turnaround_click,
+        availability_click,
+    ):
         allowed = _allowed_reports_for_session()
         triggered = callback_context.triggered_id
 
@@ -325,6 +337,34 @@ def register_callbacks(app):
                 payload["day"] = day
             return "/requests", payload
 
+        if triggered == "repair-count-mix-chart":
+            if "replacement" not in allowed:
+                raise PreventUpdate
+            click = repair_mix_click
+            if not click or not click.get("points"):
+                raise PreventUpdate
+            label = str(click["points"][0].get("label") or "").strip()
+            if not label:
+                raise PreventUpdate
+            return "/replacement", {
+                "page": "replacement",
+                "category": "",
+                "building": "",
+                "repair_count_bin": label,
+            }
+
+        if triggered in ("turnaround-chart", "availability-chart"):
+            if "orders" not in allowed:
+                raise PreventUpdate
+            click = turnaround_click if triggered == "turnaround-chart" else availability_click
+            if not click or not click.get("points"):
+                raise PreventUpdate
+            axis_key = "y" if triggered == "turnaround-chart" else "x"
+            label = str(click["points"][0].get(axis_key) or "").strip()
+            if not label:
+                raise PreventUpdate
+            return "/orders", {"page": "orders", "category": label}
+
         if "replacement" not in allowed:
             raise PreventUpdate
         if triggered == "hours-chart":
@@ -341,12 +381,23 @@ def register_callbacks(app):
         if not label:
             raise PreventUpdate
         if triggered == "hours-chart":
-            return "/replacement", {"page": "replacement", "category": label, "building": ""}
-        return "/replacement", {"page": "replacement", "category": "", "building": label}
+            return "/replacement", {
+                "page": "replacement",
+                "category": label,
+                "building": "",
+                "repair_count_bin": "",
+            }
+        return "/replacement", {
+            "page": "replacement",
+            "category": "",
+            "building": label,
+            "repair_count_bin": "",
+        }
 
     @app.callback(
         Output("replace-filter-category", "value"),
         Output("replace-filter-building", "value"),
+        Output("replace-filter-repair-count", "value"),
         Output("chart-drill-store", "data", allow_duplicate=True),
         Input("chart-drill-store", "data"),
         prevent_initial_call=True,
@@ -354,7 +405,23 @@ def register_callbacks(app):
     def apply_chart_drill_to_replacement(drill):
         if not drill or drill.get("page") != "replacement":
             raise PreventUpdate
-        return drill.get("category") or "", drill.get("building") or "", None
+        return (
+            drill.get("category") or "",
+            drill.get("building") or "",
+            drill.get("repair_count_bin") or "",
+            None,
+        )
+
+    @app.callback(
+        Output("order-filter-category", "value", allow_duplicate=True),
+        Output("chart-drill-store", "data", allow_duplicate=True),
+        Input("chart-drill-store", "data"),
+        prevent_initial_call=True,
+    )
+    def apply_chart_drill_to_orders(drill):
+        if not drill or drill.get("page") != "orders":
+            raise PreventUpdate
+        return drill.get("category") or "", None
 
     @app.callback(
         Output("month-select", "value"),
@@ -397,6 +464,7 @@ def register_callbacks(app):
         Input("replace-filter-status", "value"),
         Input("replace-filter-category", "value"),
         Input("replace-filter-building", "value"),
+        Input("replace-filter-repair-count", "value"),
         Input("replace-filter-equipment", "value"),
         Input("replace-filter-id", "value"),
         Input("replace-page-size", "value"),
@@ -406,6 +474,7 @@ def register_callbacks(app):
         rep_status,
         rep_category,
         rep_building,
+        rep_repair_count,
         rep_equip,
         rep_id,
         page_size_value,
@@ -418,6 +487,7 @@ def register_callbacks(app):
             "status": rep_status or "All",
             "category": rep_category or "",
             "building": rep_building or "",
+            "repair_count_bin": rep_repair_count or "",
             "equipment_substr": rep_equip or "",
             "id_substr": rep_id or "",
         }
@@ -553,14 +623,15 @@ def register_callbacks(app):
     def sync_chrome_icons(data):
         m = merge_app_settings(data)
         io = m["iconNavOrders"]
-        ir = m.get("iconNavRequests", m["iconKpiRequests"])
+        ir = m["iconNavRequests"]
+        irep = m["iconNavReplacement"]
         return (
             m["iconNavOverview"],
-            m["iconNavReplacement"],
+            irep,
             io,
             ir,
             m["iconNavSettings"],
-            m["iconReplaceTitle"],
+            irep,
             io,
             ir,
             m["iconReplaceStatusReplace"],
@@ -588,8 +659,8 @@ def register_callbacks(app):
         State("settings-iconNavOverview", "value"),
         State("settings-iconNavReplacement", "value"),
         State("settings-iconNavOrders", "value"),
+        State("settings-iconNavRequests", "value"),
         State("settings-iconNavSettings", "value"),
-        State("settings-iconReplaceTitle", "value"),
         State("settings-iconReplaceStatusReplace", "value"),
         State("settings-iconReplaceStatusMonitor", "value"),
         State("settings-iconReplaceStatusGood", "value"),
@@ -616,8 +687,8 @@ def register_callbacks(app):
         in_ov,
         in_rep,
         in_ord,
+        in_req,
         in_set,
-        ir_title,
         ir_rep,
         ir_mon,
         ir_good,
@@ -660,8 +731,9 @@ def register_callbacks(app):
             "iconNavOverview": in_ov,
             "iconNavReplacement": in_rep,
             "iconNavOrders": in_ord,
+            "iconNavRequests": in_req,
             "iconNavSettings": in_set,
-            "iconReplaceTitle": ir_title,
+            "iconReplaceTitle": in_rep,
             "iconReplaceStatusReplace": ir_rep,
             "iconReplaceStatusMonitor": ir_mon,
             "iconReplaceStatusGood": ir_good,
@@ -686,8 +758,8 @@ def register_callbacks(app):
         Output("settings-iconNavOverview", "value"),
         Output("settings-iconNavReplacement", "value"),
         Output("settings-iconNavOrders", "value"),
+        Output("settings-iconNavRequests", "value"),
         Output("settings-iconNavSettings", "value"),
-        Output("settings-iconReplaceTitle", "value"),
         Output("settings-iconReplaceStatusReplace", "value"),
         Output("settings-iconReplaceStatusMonitor", "value"),
         Output("settings-iconReplaceStatusGood", "value"),
@@ -719,8 +791,8 @@ def register_callbacks(app):
             m["iconNavOverview"],
             m["iconNavReplacement"],
             m["iconNavOrders"],
+            m["iconNavRequests"],
             m["iconNavSettings"],
-            m["iconReplaceTitle"],
             m["iconReplaceStatusReplace"],
             m["iconReplaceStatusMonitor"],
             m["iconReplaceStatusGood"],

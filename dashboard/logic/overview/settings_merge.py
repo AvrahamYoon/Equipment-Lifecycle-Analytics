@@ -12,6 +12,7 @@ _ICON_KEYS = (
     "iconNavOverview",
     "iconNavReplacement",
     "iconNavOrders",
+    "iconNavRequests",
     "iconNavSettings",
     "iconReplaceTitle",
     "iconReplaceStatusReplace",

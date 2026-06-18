@@ -183,7 +183,8 @@ def settings_page_body():
             ),
             section(
                 "Icons",
-                "Short text or emoji for KPI cards, left navigation, and replacement / order pages. "
+                "Short text or emoji for KPI cards and left navigation. "
+                "Replacement, Order roster, and Request roster page titles reuse their nav icons. "
                 "Leave blank to restore the built-in default for that slot.",
                 [
                     html.Div(
@@ -197,8 +198,8 @@ def settings_page_body():
                             dcc.Input(id="settings-iconNavOverview", type="text", value=_DEFAULTS["iconNavOverview"], style={**inp, "width": 88}),
                             dcc.Input(id="settings-iconNavReplacement", type="text", value=_DEFAULTS["iconNavReplacement"], style={**inp, "width": 88}),
                             dcc.Input(id="settings-iconNavOrders", type="text", value=_DEFAULTS["iconNavOrders"], style={**inp, "width": 88}),
+                            dcc.Input(id="settings-iconNavRequests", type="text", value=_DEFAULTS["iconNavRequests"], style={**inp, "width": 88}),
                             dcc.Input(id="settings-iconNavSettings", type="text", value=_DEFAULTS["iconNavSettings"], style={**inp, "width": 88}),
-                            dcc.Input(id="settings-iconReplaceTitle", type="text", value=_DEFAULTS["iconReplaceTitle"], style={**inp, "width": 88}),
                             dcc.Input(id="settings-iconReplaceStatusReplace", type="text", value=_DEFAULTS["iconReplaceStatusReplace"], style={**inp, "width": 88}),
                             dcc.Input(id="settings-iconReplaceStatusMonitor", type="text", value=_DEFAULTS["iconReplaceStatusMonitor"], style={**inp, "width": 88}),
                             dcc.Input(id="settings-iconReplaceStatusGood", type="text", value=_DEFAULTS["iconReplaceStatusGood"], style={**inp, "width": 88}),

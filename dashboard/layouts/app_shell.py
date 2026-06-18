@@ -91,7 +91,7 @@ def build_root_layout(month_options, default_month):
                         _nav_item(
                             "/requests",
                             "nav-icon-requests",
-                            _DEFAULTS.get("iconNavRequests", _DEFAULTS["iconKpiRequests"]),
+                            _DEFAULTS["iconNavRequests"],
                             "Request roster",
                         ),
                     ),

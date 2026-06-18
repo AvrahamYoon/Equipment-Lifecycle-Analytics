@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 
 from dashboard import constants as C
 from dashboard.logic.buildings import normalize_building_value
+from dashboard.logic.repair_count_bins import REPAIR_COUNT_BIN_LABELS, repair_count_bin_label
 from dashboard.taxonomy import chart_category_rank, equipment_chart_class
 
 
@@ -97,7 +98,7 @@ def build_parts_budget_donut_figure(
     return fig
 
 
-def build_repair_count_distribution_figure(rep: pd.DataFrame) -> go.Figure:
+def build_repair_count_distribution_figure(rep: pd.DataFrame, scope_note: str = "") -> go.Figure:
     """Hollow ring: share of equipment by how many repairs in scope."""
     id_col = "equipIdNorm" if "equipIdNorm" in rep.columns else "equipId"
     if rep.empty or id_col not in rep.columns:
@@ -121,18 +122,10 @@ def build_repair_count_distribution_figure(rep: pd.DataFrame) -> go.Figure:
         return fig
 
     def _bin(n: int) -> str:
-        if n <= 1:
-            return "1 repair"
-        if n == 2:
-            return "2 repairs"
-        if n == 3:
-            return "3 repairs"
-        if n == 4:
-            return "4 repairs"
-        return "5+ repairs"
+        return repair_count_bin_label(n)
 
     bins = counts.map(_bin).value_counts()
-    order = ["1 repair", "2 repairs", "3 repairs", "4 repairs", "5+ repairs"]
+    order = list(REPAIR_COUNT_BIN_LABELS)
     labels = [b for b in order if b in bins.index]
     values = [int(bins[b]) for b in labels]
     _pal = [C.C_BLUE, C.C_PURPLE, C.C_GREEN, C.C_ORANGE, C.C_YELLOW]
@@ -149,13 +142,17 @@ def build_repair_count_distribution_figure(rep: pd.DataFrame) -> go.Figure:
             textinfo="percent+label",
             textposition="outside",
             textfont=dict(size=10, color=C.COLOR_TEXT_SECONDARY),
-            hovertemplate="%{label}: %{value} units (%{percent})<extra></extra>",
+            hovertemplate="%{label}: %{value} units (%{percent})<br><sup>Click to open Replacement table</sup><extra></extra>",
         )
     )
     total_units = sum(values)
+    if scope_note:
+        scope_line = f"{scope_note} · {total_units} units"
+    else:
+        scope_line = f"{total_units} units in scope"
     fig.update_layout(
         title=dict(
-            text=f"Equipment by repair count<br><sup style='color:{C.COLOR_TEXT_MUTED}'>{total_units} units in scope</sup>",
+            text=f"Equipment by repair count<br><sup style='color:{C.COLOR_TEXT_MUTED}'>{scope_line} · click a slice to open Replacement table</sup>",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=13,
@@ -768,7 +765,7 @@ def build_turnaround_figure(done_svc: pd.DataFrame) -> go.Figure:
     
     fig.update_layout(
         title=dict(
-            text="Avg turnaround by equipment type (schedule → completion)",
+            text="Avg turnaround by equipment type (schedule → completion)<br><sup style='color:#94a3b8'>Click a bar to open Order roster</sup>",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,
@@ -876,7 +873,7 @@ def build_availability_figure(
     )
     fig.update_layout(
         title=dict(
-            text="Availability by equipment type",
+            text="Availability by equipment type<br><sup style='color:#94a3b8'>Click a bar to open Order roster</sup>",
             font=dict(
                 color=C.COLOR_TEXT_PRIMARY,
                 size=14,
