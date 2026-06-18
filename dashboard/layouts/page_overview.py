@@ -25,6 +25,23 @@ def _chart_card(graph_id: str, *, wide: bool = False, tall: bool = False, wrap_i
 def overview_page_body():
     return html.Div(
         [
+            html.Div(
+                [
+                    html.Div(
+                        "Key metrics and charts for the month selected in the header.",
+                        className="overview-toolbar-hint",
+                    ),
+                    html.A(
+                        "Export PDF report",
+                        id="overview-export-pdf",
+                        href="#",
+                        target="_blank",
+                        className="pdf-export-link",
+                        title="Download the current Overview as a PDF report",
+                    ),
+                ],
+                className="overview-toolbar",
+            ),
             html.Div(id="kpi-row"),
             html.Div(
                 [

@@ -31,6 +31,7 @@ from dashboard.logic.repair_orders_table import build_repair_orders_table, repai
 from dashboard.logic.replacement_table import build_replacement_table
 from dashboard.logic.request_roster_table import build_request_roster_table
 from dashboard.logic.service_scope import prepare_service_for_display
+from dashboard.export.settings_codec import encode_settings
 from dashboard.session_scope import (
     REPORT_KEYS,
     allowed_reports_for_session,
@@ -255,6 +256,18 @@ def register_callbacks(app):
             secondary_budget if secondary_budget is not None else build_hidden_chart_placeholder()
         )
         return (*out[:9], primary_budget, annual_fig, annual_wrap, out[11], repair_wrap, out[12])
+
+    @app.callback(
+        Output("overview-export-pdf", "href"),
+        Input("month-select", "value"),
+        Input("settings-store", "data"),
+    )
+    def overview_export_href(month_key, settings_data):
+        params = {
+            "month": month_key or C.ALL_MONTHS_KEY,
+            "settings": encode_settings(settings_data if isinstance(settings_data, dict) else None),
+        }
+        return "/export/overview.pdf?" + urlencode(params)
 
     @app.callback(
         Output("url", "pathname"),

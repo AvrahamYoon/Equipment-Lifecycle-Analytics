@@ -9,7 +9,9 @@ from flask import Response, abort, request
 
 from dashboard import constants as C
 from dashboard.data_loaders import df_req, df_repairs, df_service
+from dashboard.export.overview_pdf import build_overview_pdf
 from dashboard.export.pdf_tables import build_table_pdf
+from dashboard.export.settings_codec import decode_settings
 from dashboard.logic.repair_orders_table import build_repair_orders_table
 from dashboard.logic.replacement_table import build_replacement_table
 from dashboard.logic.request_roster_table import build_request_roster_table
@@ -126,3 +128,14 @@ def configure_exports(app: Dash) -> None:
             landscape_page=False,
         )
         return _pdf_response(pdf, "requests.pdf")
+
+    @server.route("/export/overview.pdf")
+    def export_overview_pdf():
+        if "overview" not in allowed_reports_for_session():
+            abort(403)
+
+        month_key = _arg("month", C.ALL_MONTHS_KEY)
+        settings = decode_settings(_arg("settings"))
+        pdf = build_overview_pdf(month_key, settings)
+        label = "all-months" if C.is_all_months(month_key) else month_key.replace("/", "-")
+        return _pdf_response(pdf, f"overview-{label}.pdf")

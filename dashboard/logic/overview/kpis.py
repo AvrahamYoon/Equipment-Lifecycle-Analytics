@@ -47,12 +47,12 @@ def kpi_card(label, value, icon, accent):
     )
 
 
-def build_kpi_children(
+def compute_kpi_values(
     req: pd.DataFrame,
     svc: pd.DataFrame,
     rep: pd.DataFrame,
-    kpi_icons: list[str],
-):
+) -> list[tuple[str, str]]:
+    """Label/value pairs for KPI summary tables and PDF export."""
     total_req = len(req)
     total_completed = (svc["Status"].str.strip().str.lower() == "completed").sum()
     total_scheduled = (svc["Status"].str.strip().str.lower() == "scheduled").sum()
@@ -60,17 +60,28 @@ def build_kpi_children(
     total_labor = rep["labor"].sum()
     total_repair = rep["total"].sum()
     total_svc = total_completed + total_scheduled
+    return [
+        ("Total Requests", f"{total_req:,}"),
+        ("Completed / Total", f"{total_completed:,}/{total_svc:,}"),
+        ("Scheduled", f"{total_scheduled:,}"),
+        ("Total Repair Cost", f"${total_repair:,.2f}"),
+        ("Parts Cost", f"${total_parts:,.2f}"),
+        ("Labor Cost", f"${total_labor:,.2f}"),
+    ]
 
+
+def build_kpi_children(
+    req: pd.DataFrame,
+    svc: pd.DataFrame,
+    rep: pd.DataFrame,
+    kpi_icons: list[str],
+):
     icons = list(kpi_icons)
     while len(icons) < 6:
         icons.append("")
     icons = icons[:6]
-
+    accents = [C.C_BLUE, C.C_GREEN, C.C_PURPLE, C.C_ORANGE, C.C_YELLOW, C.C_PINK]
     return [
-        kpi_card("Total Requests", total_req, icons[0], C.C_BLUE),
-        kpi_card("Completed / Total", f"{total_completed}/{total_svc}", icons[1], C.C_GREEN),
-        kpi_card("Scheduled", total_scheduled, icons[2], C.C_PURPLE),
-        kpi_card("Total Repair Cost", f"${total_repair:,.2f}", icons[3], C.C_ORANGE),
-        kpi_card("Parts Cost", f"${total_parts:,.2f}", icons[4], C.C_YELLOW),
-        kpi_card("Labor Cost", f"${total_labor:,.2f}", icons[5], C.C_PINK),
+        kpi_card(label, value, icons[i], accents[i])
+        for i, (label, value) in enumerate(compute_kpi_values(req, svc, rep))
     ]
