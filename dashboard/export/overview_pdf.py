@@ -21,6 +21,7 @@ from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.kpis import compute_kpi_values
 from dashboard.logic.service_scope import prepare_service_for_display
 from dashboard.export.chart_text import plain_chart_text, sanitize_figure_for_export
+from dashboard.export.kaleido_render import render_figures_batch
 from dashboard.session_scope import apply_building_scope
 
 
@@ -70,7 +71,15 @@ def _figure_title(fig: go.Figure, fallback: str) -> str:
     return fallback
 
 
-def _figure_to_png(fig: go.Figure, *, width: int, height: int, scale: int = 2) -> bytes:
+_SIZE_PRESETS = {
+    "wide": (1100, 420),
+    "tall": (1100, 520),
+    "donut": (640, 420),
+    "gauge": (520, 360),
+}
+
+
+def _prepare_figure(fig: go.Figure, *, width: int, height: int) -> go.Figure:
     export_fig = sanitize_figure_for_export(fig)
     export_fig.update_layout(
         paper_bgcolor="#ffffff",
@@ -78,7 +87,31 @@ def _figure_to_png(fig: go.Figure, *, width: int, height: int, scale: int = 2) -
         width=width,
         height=height,
     )
-    return export_fig.to_image(format="png", scale=scale, engine="kaleido")
+    return export_fig
+
+
+def _collect_png_jobs(
+    charts: list[tuple[str, go.Figure, str]],
+) -> tuple[list[tuple[go.Figure, int, int]], list[dict[str, int | str]]]:
+    """Build Kaleido batch jobs and a render plan for the PDF story."""
+    jobs: list[tuple[go.Figure, int, int]] = []
+    plan: list[dict[str, int | str]] = []
+    i = 0
+    while i < len(charts):
+        _title, fig, hint = charts[i]
+        if hint == "gauge" and i + 1 < len(charts) and charts[i + 1][2] == "gauge":
+            w, h = _SIZE_PRESETS["gauge"]
+            start = len(jobs)
+            jobs.append((_prepare_figure(fig, width=w, height=h), w, h))
+            jobs.append((_prepare_figure(charts[i + 1][1], width=w, height=h), w, h))
+            plan.append({"kind": "gauge_pair", "chart_i": i, "png_i": start})
+            i += 2
+            continue
+        w, h = _SIZE_PRESETS.get(hint, _SIZE_PRESETS["wide"])
+        jobs.append((_prepare_figure(fig, width=w, height=h), w, h))
+        plan.append({"kind": "single", "chart_i": i, "png_i": len(jobs) - 1})
+        i += 1
+    return jobs, plan
 
 
 def _scaled_image(png_bytes: bytes, max_width: float, max_height: float) -> Image:
@@ -185,14 +218,6 @@ def _chart_sections(
     return footer, kpi_rows, charts
 
 
-_SIZE_PRESETS = {
-    "wide": (1100, 420),
-    "tall": (1100, 520),
-    "donut": (640, 420),
-    "gauge": (520, 360),
-}
-
-
 def build_overview_pdf(month_key: str, settings: dict[str, Any] | None = None) -> bytes:
     """Render the Overview page charts and KPIs into a PDF report."""
     footer, kpi_rows, charts = _chart_sections(month_key, settings)
@@ -271,25 +296,22 @@ def build_overview_pdf(month_key: str, settings: dict[str, Any] | None = None) -
         _kpi_table(kpi_rows, usable_width, kpi_value_style, kpi_label_style),
     ]
 
-    i = 0
-    while i < len(charts):
-        title_a, fig_a, hint_a = charts[i]
-        if hint_a == "gauge" and i + 1 < len(charts) and charts[i + 1][2] == "gauge":
-            _title_b, fig_b, _hint_b = charts[i + 1]
+    png_jobs, render_plan = _collect_png_jobs(charts)
+    png_bytes = render_figures_batch(png_jobs) if png_jobs else []
+
+    for step in render_plan:
+        chart_i = int(step["chart_i"])
+        png_i = int(step["png_i"])
+        if step["kind"] == "gauge_pair":
+            title_a = charts[chart_i][0]
+            title_b = charts[chart_i + 1][0]
             story.append(PageBreak())
-            story.append(Paragraph(escape(f"{title_a} · {charts[i + 1][0]}"), section_style))
+            story.append(Paragraph(escape(f"{title_a} · {title_b}"), section_style))
             story.append(Spacer(1, 8))
-            w, h = _SIZE_PRESETS["gauge"]
-            png_a = _figure_to_png(fig_a, width=w, height=h)
-            png_b = _figure_to_png(fig_b, width=w, height=h)
             half_w = (usable_width - 16) / 2
-            img_a = _scaled_image(png_a, half_w, usable_height * 0.55)
-            img_b = _scaled_image(png_b, half_w, usable_height * 0.55)
-            pair = Table(
-                [[img_a, img_b]],
-                colWidths=[half_w, half_w],
-                hAlign="CENTER",
-            )
+            img_a = _scaled_image(png_bytes[png_i], half_w, usable_height * 0.55)
+            img_b = _scaled_image(png_bytes[png_i + 1], half_w, usable_height * 0.55)
+            pair = Table([[img_a, img_b]], colWidths=[half_w, half_w], hAlign="CENTER")
             pair.setStyle(
                 TableStyle(
                     [
@@ -301,17 +323,15 @@ def build_overview_pdf(month_key: str, settings: dict[str, Any] | None = None) -
                 )
             )
             story.append(pair)
-            i += 2
             continue
 
+        title_a = charts[chart_i][0]
+        hint_a = charts[chart_i][2]
         story.append(PageBreak())
         story.append(Paragraph(escape(title_a), section_style))
         story.append(Spacer(1, 8))
-        w, h = _SIZE_PRESETS.get(hint_a, _SIZE_PRESETS["wide"])
-        png = _figure_to_png(fig_a, width=w, height=h)
         max_h = usable_height * (0.82 if hint_a == "tall" else 0.72)
-        story.append(_scaled_image(png, usable_width, max_h))
-        i += 1
+        story.append(_scaled_image(png_bytes[png_i], usable_width, max_h))
 
     doc.build(story)
     return buffer.getvalue()

@@ -1,6 +1,6 @@
 # Equipment Lifecycle Analytics
 
-Work-order analytics in a Dash dashboard plus an offline pipeline to normalize Compuclean equipment exports. CSVs under `data/` are the source of truth; the app loads them at startup and keeps chart logic in pandas. DuckDB is used for CSV-oriented analytic reads/merges, while SQLite is used only for auth account storage.
+Work-order analytics in a Dash dashboard plus an offline pipeline to normalize Compuclean equipment exports. CSVs under `data/` are the source of truth; the app loads them at startup and keeps chart logic in pandas. DuckDB is used for CSV-oriented analytic reads/merges, while SQLite is used only for auth account storage. PDF export uses ReportLab (tables and report layout) and Kaleido (Plotly chart → PNG on the server).
 
 ## Tech stack
 
@@ -11,10 +11,12 @@ Work-order analytics in a Dash dashboard plus an offline pipeline to normalize C
 [![Flask](https://img.shields.io/badge/Flask-000000?style=flat&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![DuckDB](https://img.shields.io/badge/DuckDB-FFD700?style=flat&logo=duckdb&logoColor=black)](https://duckdb.org/)
 [![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white)](https://sqlite.org/)
+[![ReportLab](https://img.shields.io/badge/ReportLab-CC0000?style=flat)](https://www.reportlab.com/)
+[![Kaleido](https://img.shields.io/badge/Kaleido-0084d6?style=flat&logo=plotly&logoColor=white)](https://github.com/plotly/Kaleido)
 [![SQL](https://img.shields.io/badge/SQL-005571?style=flat)](https://duckdb.org/docs/sql/introduction)
 [![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)](https://developer.mozilla.org/docs/Web/CSS)
 
-Badges from [Shields.io](https://shields.io/) (`style=flat`).
+Badges from [Shields.io](https://shields.io/) (`style=flat`). **ReportLab** builds table and Overview PDFs; **Kaleido** renders Plotly charts to PNG on the server (Overview export only).
 
 ## Requirements
 
@@ -23,6 +25,19 @@ pip install dash pandas plotly duckdb reportlab kaleido
 ```
 
 Python 3.10+ recommended.
+
+### Overview PDF export (each computer, once)
+
+Table PDFs use ReportLab only. **Overview PDF** also needs **Kaleido** and a **one-time Chromium download** per Windows/macOS user profile (stored under your user folder, not in the git repo). On a new machine:
+
+```bash
+pip install kaleido reportlab
+python -m dashboard.export.kaleido_render
+```
+
+Then restart the dashboard. The first export may still take a few seconds while Kaleido warms up; later exports on the same machine are much faster. If export fails, the browser shows setup steps instead of a blank download.
+
+Corporate networks must allow that one-time Chromium download. Table exports do not need this step.
 
 ## Run
 

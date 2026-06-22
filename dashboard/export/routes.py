@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+import threading
 from datetime import datetime, timezone
+from html import escape
 
 from dash import Dash
 from flask import Response, abort, request
 
 from dashboard import constants as C
 from dashboard.data_loaders import df_req, df_repairs, df_service
+from dashboard.export.kaleido_render import KALEIDO_SETUP_HINT, KaleidoNotReadyError, warm_kaleido
 from dashboard.export.overview_pdf import build_overview_pdf
 from dashboard.export.pdf_tables import build_table_pdf
 from dashboard.export.settings_codec import decode_settings
@@ -17,6 +21,8 @@ from dashboard.logic.replacement_table import build_replacement_table
 from dashboard.logic.request_roster_table import build_request_roster_table
 from dashboard.logic.service_scope import prepare_service_for_display
 from dashboard.session_scope import allowed_reports_for_session, apply_building_scope
+
+_log = logging.getLogger(__name__)
 
 
 def _arg(name: str, default: str = "") -> str:
@@ -42,9 +48,38 @@ def _generated_subtitle(scope_note: str) -> str:
     return f"{scope_note} · Generated {stamp}"
 
 
+def _kaleido_error_html(message: str) -> str:
+    safe = escape(message)
+    hint = escape(KALEIDO_SETUP_HINT)
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><title>Overview PDF export</title>
+<style>
+body {{ font-family: "Segoe UI", Arial, sans-serif; margin: 2rem; color: #0f172a; max-width: 640px; }}
+h1 {{ font-size: 1.25rem; }}
+pre {{ white-space: pre-wrap; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; }}
+a {{ color: #2563eb; }}
+</style></head><body>
+<h1>Overview PDF export is not ready on this computer</h1>
+<p>{safe}</p>
+<pre>{hint}</pre>
+<p><a href="/">Back to dashboard</a></p>
+</body></html>"""
+
+
 def configure_exports(app: Dash) -> None:
     """Register ``/export/*.pdf`` routes on the Dash Flask server."""
     server = app.server
+
+    def _prewarm_kaleido() -> None:
+        try:
+            warm_kaleido(verbose=False)
+            _log.info("Kaleido prewarmed for Overview PDF export.")
+        except KaleidoNotReadyError as exc:
+            _log.warning("Kaleido prewarm skipped: %s", exc)
+        except Exception as exc:
+            _log.warning("Kaleido prewarm failed: %s", exc)
+
+    threading.Thread(target=_prewarm_kaleido, daemon=True, name="kaleido-prewarm").start()
 
     @server.route("/export/replacement.pdf")
     def export_replacement_pdf():
@@ -136,6 +171,16 @@ def configure_exports(app: Dash) -> None:
 
         month_key = _arg("month", C.ALL_MONTHS_KEY)
         settings = decode_settings(_arg("settings"))
-        pdf = build_overview_pdf(month_key, settings)
+        try:
+            pdf = build_overview_pdf(month_key, settings)
+        except KaleidoNotReadyError as exc:
+            return Response(_kaleido_error_html(str(exc)), status=503, mimetype="text/html")
+        except Exception as exc:
+            _log.exception("Overview PDF export failed")
+            return Response(
+                _kaleido_error_html(f"Unexpected error while building the report: {exc}"),
+                status=500,
+                mimetype="text/html",
+            )
         label = "all-months" if C.is_all_months(month_key) else month_key.replace("/", "-")
         return _pdf_response(pdf, f"overview-{label}.pdf")
