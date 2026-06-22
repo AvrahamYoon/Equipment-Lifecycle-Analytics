@@ -14,12 +14,19 @@ _FED_HOLIDAYS_NORM = _federal_holiday_norm_set()
 
 
 def business_days_inclusive(start, end) -> float:
+    """Count business days from *start* through *end* (Mon–Fri, US federal holidays out).
+
+    Same calendar day (schedule = completion) counts as **1** even on a weekend or
+    holiday, so same-day turnaround is never shown as 0.
+    """
     if pd.isna(start) or pd.isna(end):
         return float("nan")
     a = pd.Timestamp(start).normalize()
     b = pd.Timestamp(end).normalize()
     if b < a:
         return float("nan")
+    if a == b:
+        return 1.0
     n = 0
     for d in pd.date_range(a, b, freq="D"):
         if d.weekday() >= 5:

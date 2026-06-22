@@ -17,6 +17,7 @@ from valuation import (
 from dashboard.taxonomy import (
     apply_equip_category,
     build_equip_category_lookup,
+    build_summary_equip_type_map,
     ensure_equip_id_norm_column,
     equipment_row_category,
     load_equip_type_map,
@@ -258,12 +259,19 @@ try:
     df_repairs = _load_repairs_merged()
     df_equip = load_equipment_summary()
     _equip_type_map = load_equip_type_map(C.EQUIPMENT_TYPE_CSV)
+    _summary_type_map = build_summary_equip_type_map(df_equip)
     _equip_category_lookup = build_equip_category_lookup(df_equip, _equip_type_map)
     df_service = apply_equip_category(
-        df_service, _equip_category_lookup, id_col="equipIdNorm"
+        df_service,
+        _summary_type_map,
+        type_map=_equip_type_map,
+        id_col="equipIdNorm",
     )
     df_repairs = apply_equip_category(
-        df_repairs, _equip_category_lookup, id_col="equipIdNorm"
+        df_repairs,
+        _summary_type_map,
+        type_map=_equip_type_map,
+        id_col="equipIdNorm",
     )
     _purchase_prices = load_purchase_price_map(C.PURCHASE_CSV)
     _valuation_sheet = merge_valuation_sheet(

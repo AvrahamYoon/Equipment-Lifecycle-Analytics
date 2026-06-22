@@ -85,6 +85,69 @@ def equipment_chart_class(text: str) -> str:
     return "Other"
 
 
+_CHART_CLASS_TO_EQUIP_TYPE: dict[str, str] = {
+    "Versamatic": "Vacuum",
+    "Lindhaus": "Vacuum",
+    "Kaivac": "Kaivac",
+    "Ladders": "Ladder",
+    "Dispensers": "Chemical Dispenser",
+    "Floor machines": "Scrubber",
+    "Carpet / extractors": "Carpet Cleaning",
+    "Wet-dry / shop vacuums": "Vacuum",
+    "Other vacuums": "Vacuum",
+}
+
+_NAME_COL_CANDIDATES = (
+    "equipment",
+    "Equipment Name",
+    "Equipment name",
+    "Name",
+    "Equipment",
+)
+
+
+def pick_equipment_name_column(df: pd.DataFrame) -> str | None:
+    for col in _NAME_COL_CANDIDATES:
+        if col in df.columns:
+            return col
+    return None
+
+
+def infer_equip_category_from_name(name) -> str | None:
+    """Name fallback: valuation keyword rules, then legacy chart-class heuristics."""
+    if pd.isna(name) or not str(name).strip():
+        return None
+    from valuation import equip_type_from_equipment_name
+
+    hit = equip_type_from_equipment_name(str(name))
+    if hit:
+        return hit
+    coarse = equipment_chart_class(str(name))
+    return _CHART_CLASS_TO_EQUIP_TYPE.get(coarse)
+
+
+def resolve_equip_category(
+    equip_id,
+    equipment_name,
+    type_map: dict[str, str] | None,
+    summary_lookup: dict[str, str] | None = None,
+) -> str:
+    """Resolve category: ``Type.csv`` → cleaned summary → name inference → Other."""
+    eid = norm_equip_id(equip_id)
+    if type_map and eid:
+        from_purchase = normalize_equip_type(type_map.get(eid, ""))
+        if from_purchase:
+            return from_purchase
+    if summary_lookup and eid:
+        from_summary = normalize_equip_type(summary_lookup.get(eid, ""))
+        if from_summary and from_summary != "Other":
+            return from_summary
+    inferred = infer_equip_category_from_name(equipment_name)
+    if inferred:
+        return inferred
+    return "Other"
+
+
 def normalize_equip_type(value) -> str:
     if pd.isna(value):
         return ""
@@ -131,7 +194,7 @@ def load_equip_type_map(path: str | None = None) -> dict[str, str]:
 
 
 def equipment_row_category(row, type_map: dict[str, str] | None = None) -> str:
-    """Category: summary ``EquipType``, else ``Type.csv``, else Other."""
+    """Category: summary ``EquipType``, else ``Type.csv``, else name inference."""
     et = normalize_equip_type(row.get("EquipType", ""))
     if et:
         return et
@@ -139,42 +202,57 @@ def equipment_row_category(row, type_map: dict[str, str] | None = None) -> str:
         eid = norm_equip_id(row.get("EquipmentId", row.get("equipIdNorm", "")))
         if eid and type_map.get(eid):
             return type_map[eid]
-    return "Other"
+    name = row.get("Name", row.get("equipment", ""))
+    return infer_equip_category_from_name(name) or "Other"
+
+
+def build_summary_equip_type_map(df_equip: pd.DataFrame) -> dict[str, str]:
+    """Equipment ID → ``EquipType`` from cleaned summary only (no name inference)."""
+    out: dict[str, str] = {}
+    if df_equip.empty or "equipIdNorm" not in df_equip.columns:
+        return out
+    if "EquipType" not in df_equip.columns:
+        return out
+    for _, row in df_equip.iterrows():
+        eid = norm_equip_id(row["equipIdNorm"])
+        et = normalize_equip_type(row.get("EquipType", ""))
+        if eid and et:
+            out[eid] = et
+    return out
 
 
 def build_equip_category_lookup(
     df_equip: pd.DataFrame,
     type_map: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """ID → EquipType: ``Type.csv`` base, overridden by non-empty cleaned summary types."""
+    """ID → EquipType: ``Type.csv`` first; summary fills IDs not already in purchase types."""
     lookup: dict[str, str] = dict(type_map or {})
-
-    if df_equip.empty or "equipIdNorm" not in df_equip.columns:
-        return lookup
-    if "EquipType" not in df_equip.columns:
-        return lookup
-
-    for _, row in df_equip.iterrows():
-        eid = norm_equip_id(row["equipIdNorm"])
-        et = normalize_equip_type(row["EquipType"])
-        if eid and et:
+    summary = build_summary_equip_type_map(df_equip)
+    for eid, et in summary.items():
+        if eid not in lookup:
             lookup[eid] = et
     return lookup
 
 
 def apply_equip_category(
     df: pd.DataFrame,
-    lookup: dict[str, str],
+    summary_lookup: dict[str, str] | None,
     *,
+    type_map: dict[str, str] | None = None,
     id_col: str = "equipIdNorm",
-    name_col: str | None = None,  # unused; EquipType comes from cleaned summary by ID
+    name_col: str | None = None,
 ) -> pd.DataFrame:
-    """Attach ``equipCategory`` from cleaned ``EquipType`` via equipment ID lookup."""
+    """Attach ``equipCategory``: purchase ``Type.csv`` → summary → name inference."""
     out = df.copy()
-    if id_col in out.columns and lookup:
-        out["equipCategory"] = (
-            out[id_col].map(lambda x: lookup.get(norm_equip_id(x), "Other")).fillna("Other")
-        )
+    resolved_name_col = name_col or pick_equipment_name_column(out)
+
+    def _row_category(row: pd.Series) -> str:
+        eid = row[id_col] if id_col in row.index else ""
+        name = row[resolved_name_col] if resolved_name_col and resolved_name_col in row.index else ""
+        return resolve_equip_category(eid, name, type_map, summary_lookup)
+
+    if id_col in out.columns or resolved_name_col:
+        out["equipCategory"] = out.apply(_row_category, axis=1)
     else:
         out["equipCategory"] = "Other"
     blank = out["equipCategory"].astype(str).str.strip() == ""

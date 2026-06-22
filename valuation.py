@@ -116,12 +116,16 @@ _CATEGORY_RULES: tuple[tuple[str, str], ...] = (
     (r"\bbuffer\b", "buffer"),
     (r"\b(carpet\s*fan|air\s*mover|air\s*blower|airblower|carpet\s*blower)\b", "carpet_fan"),
     (r"\b(carpet\s*extract|extractor)\b", "extractor"),
+    (r"\bcarpet\s*clean(ing)?\b", "carpet_cleaning"),
+    (r"\b(dispenser|chemical\s*disp)\b", "chemical_dispenser"),
+    (r"\b(battery[\s-]?powered|cordless)\b", "battery_vacuum"),
     (r"\b(upholstery|puzzi|priza|minni[\s-]?capsol|i[\s-]?capsol)\b", "upholstery"),
     (r"\bchariot\b", "chariot"),
     (r"\bkaivac\b", "kaivac"),
     (r"\bsweeper\b", "sweeper"),
     (r"\bladder\b", "ladder"),
-    (r"\b(agitator|swing\s*arm)\b", "agitator"),
+    (r"\bswing\s*arm\b", "swing_arm"),
+    (r"\bagitator\b", "agitator"),
     (r"\b(wet[\s/-]?dry|vacuum|versamatic|tennant|colt|pig)\b", "vacuum"),
 )
 
@@ -190,6 +194,31 @@ _CATEGORY_LABEL: dict[str, str] = {
     "ladder": "Ladder",
     "agitator": "Agitator",
     "vacuum": "Vacuum",
+    "chemical_dispenser": "Chemical Dispenser",
+    "battery_vacuum": "Battery-powered vacuum",
+    "carpet_cleaning": "Carpet Cleaning",
+    "swing_arm": "Swing Arm",
+}
+
+# Dashboard ``EquipType`` labels (from Type.csv) for keyword-based name inference.
+_KEYWORD_SLUG_TO_EQUIP_TYPE: dict[str, str] = {
+    "backpack": "Backpack Vacuum",
+    "scrubber": "Scrubber",
+    "burnisher": "Burnisher",
+    "buffer": "Buffer",
+    "carpet_fan": "Floor Fan",
+    "extractor": "Carpet Cleaning Machine",
+    "carpet_cleaning": "Carpet Cleaning",
+    "upholstery": "Upholstery Cleaner",
+    "chariot": "Chariot",
+    "kaivac": "Kaivac",
+    "sweeper": "Vacuum",
+    "ladder": "Ladder",
+    "agitator": "Agitator",
+    "swing_arm": "Swing Arm",
+    "vacuum": "Vacuum",
+    "chemical_dispenser": "Chemical Dispenser",
+    "battery_vacuum": "Battery-powered vacuum",
 }
 
 _BRAND_LABEL: dict[str, str] = {
@@ -389,6 +418,17 @@ def extract_keyword_key(description: str) -> str | None:
     if size:
         parts.append(size)
     return "|".join(parts)
+
+
+def equip_type_from_equipment_name(description: str) -> str | None:
+    """Infer dashboard ``EquipType`` from an equipment description when ID lookup fails."""
+    if pd.isna(description) or not str(description).strip():
+        return None
+    key = extract_keyword_key(description)
+    if not key:
+        return None
+    slug = key.split("|", 1)[0]
+    return _KEYWORD_SLUG_TO_EQUIP_TYPE.get(slug)
 
 
 def format_keyword_label(key: str) -> str:

@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 
-from dashboard.taxonomy import load_equip_type_map, normalize_equip_type, norm_equip_id
+from dashboard.taxonomy import load_equip_type_map, normalize_equip_type, norm_equip_id, infer_equip_category_from_name
 
 INPUT_DIR = os.path.join("data", "equipment", "raw")
 TYPE_CSV = os.path.join("data", "equipment", "purchase", "Type.csv")
@@ -167,6 +167,12 @@ def clean_equipment_file(filepath: str) -> pd.DataFrame:
         missing = df["EquipType"].map(normalize_equip_type) == ""
         df.loc[missing, "EquipType"] = df.loc[missing, "EquipmentId"].map(
             lambda x: type_map.get(norm_equip_id(x), pd.NA)
+        )
+
+    missing = df["EquipType"].map(normalize_equip_type) == ""
+    if missing.any() and "Name" in df.columns:
+        df.loc[missing, "EquipType"] = df.loc[missing, "Name"].map(
+            lambda n: infer_equip_category_from_name(n) or pd.NA
         )
 
     return df[TARGET_COLS]
