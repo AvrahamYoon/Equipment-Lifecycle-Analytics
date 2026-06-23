@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import argparse
 
-from dashboard.auth import init_auth_db, resolve_auth_db_path, upsert_admin
+from dashboard.auth import (
+    DEFAULT_ADMIN_PASSWORD,
+    DEFAULT_ADMIN_USERNAME,
+    init_auth_db,
+    resolve_auth_db_path,
+    upsert_admin,
+)
 
 def _args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Create/update dashboard admin credentials.")

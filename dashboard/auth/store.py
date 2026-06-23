@@ -11,6 +11,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 
 DEFAULT_AUTH_DB = os.path.join("data", "auth", "users.db")
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin1234"
 VALID_ROLES = ("admin", "co-admin", "user")
 VALID_REPORTS = ("overview", "replacement", "orders", "settings")
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9._-]{2,32}$")

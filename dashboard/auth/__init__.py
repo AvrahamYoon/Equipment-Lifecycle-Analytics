@@ -1,6 +1,8 @@
 """Authentication helpers for dashboard app."""
 
 from dashboard.auth.store import (
+    DEFAULT_ADMIN_PASSWORD,
+    DEFAULT_ADMIN_USERNAME,
     create_user,
     delete_user,
     get_user_scopes,
@@ -19,6 +21,8 @@ from dashboard.auth.store import (
 from dashboard.auth.web import configure_auth
 
 __all__ = [
+    "DEFAULT_ADMIN_PASSWORD",
+    "DEFAULT_ADMIN_USERNAME",
     "configure_auth",
     "create_user",
     "delete_user",
