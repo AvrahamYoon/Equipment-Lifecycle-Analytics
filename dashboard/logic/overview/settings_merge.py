@@ -104,6 +104,23 @@ def sanitise_capacity_triple(staff, hours, days) -> tuple[int, float, int]:
     )
 
 
+def monthly_parts_from_annual(annual) -> int:
+    """Default monthly parts budget when only annual is known (rounded)."""
+    try:
+        annual_i = int(float(annual))
+    except (TypeError, ValueError):
+        annual_i = int(C.default_app_settings()["annualPartsBudget"])
+    return max(1, round(annual_i / 12))
+
+
+def sanitise_parts_budget_pair(monthly, annual) -> tuple[int, int]:
+    """Coerce monthly and annual parts budgets independently."""
+    d = C.default_app_settings()
+    monthly_i = _coerce_int(monthly, int(d["monthlyPartsBudget"]), 1, 10_000_000)
+    annual_i = _coerce_int(annual, int(d["annualPartsBudget"]), 1, 100_000_000)
+    return monthly_i, annual_i
+
+
 def merge_app_settings(raw) -> dict:
     d = C.default_app_settings()
     if not isinstance(raw, dict):
@@ -140,6 +157,23 @@ def merge_app_settings(raw) -> dict:
 
     raw_m = raw.get("staffCapacityByMonth") if isinstance(raw, dict) else None
     out["staffCapacityByMonth"] = _merge_month_capacity_map(raw_m, out)
+
+    stored_schema = raw.get("settingsSchemaVersion", 1)
+    try:
+        stored_schema = int(stored_schema)
+    except (TypeError, ValueError):
+        stored_schema = 1
+    if stored_schema < C.SETTINGS_SCHEMA_VERSION:
+        out["annualPartsBudget"] = int(d["annualPartsBudget"])
+        out["monthlyPartsBudget"] = monthly_parts_from_annual(out["annualPartsBudget"])
+        out["settingsSchemaVersion"] = C.SETTINGS_SCHEMA_VERSION
+    else:
+        out["settingsSchemaVersion"] = _coerce_int(
+            raw.get("settingsSchemaVersion"),
+            int(d["settingsSchemaVersion"]),
+            1,
+            10_000,
+        )
 
     return out
 

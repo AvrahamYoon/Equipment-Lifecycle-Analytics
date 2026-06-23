@@ -26,7 +26,8 @@ from dashboard.data_loaders import (
 from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.figures import build_hidden_chart_placeholder
 from dashboard.logic.buildings import normalize_building_value
-from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple
+from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple, sanitise_parts_budget_pair
+from dashboard.settings_persist import save_dashboard_settings
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
 from dashboard.logic.replacement_table import build_replacement_table
 from dashboard.logic.request_roster_table import build_request_roster_table
@@ -736,7 +737,9 @@ def register_callbacks(app):
             raise PreventUpdate
         tid = triggered[0].split(".")[0]
         if tid == "settings-reset":
-            return C.default_app_settings()
+            defaults = C.default_app_settings()
+            save_dashboard_settings(defaults)
+            return defaults
         if tid != "settings-apply":
             raise PreventUpdate
         base = merge_app_settings(current_store or {})
@@ -750,13 +753,16 @@ def register_callbacks(app):
             mks = str(month_key).strip()
             if mks and mks not in ("None", "nan", "NaT"):
                 by_m[mks] = {"staffCount": sc, "hoursPerDay": hd, "workDays": wd}
+        monthly_budget, annual_budget = sanitise_parts_budget_pair(
+            monthly_parts_budget, annual_parts_budget
+        )
         patch = {
             "staffCount": sc,
             "hoursPerDay": hd,
             "workDays": wd,
             "baseAvailDays": base_avail,
-            "monthlyPartsBudget": monthly_parts_budget,
-            "annualPartsBudget": annual_parts_budget,
+            "monthlyPartsBudget": monthly_budget,
+            "annualPartsBudget": annual_budget,
             "weekStartsOn": week_val or "sunday",
             "iconKpiRequests": ik_req,
             "iconKpiCompleted": ik_comp,
@@ -775,7 +781,9 @@ def register_callbacks(app):
             "iconReplaceStatusGood": ir_good,
             "staffCapacityByMonth": by_m,
         }
-        return merge_app_settings({**base, **patch})
+        merged = merge_app_settings({**base, **patch})
+        save_dashboard_settings(merged)
+        return merged
 
     @app.callback(
         Output("settings-staff-count", "value"),

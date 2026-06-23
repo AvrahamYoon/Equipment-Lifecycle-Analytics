@@ -17,8 +17,11 @@ BASE_AVAIL_DAYS = 311
 DEFAULT_STAFF_COUNT = 4
 DEFAULT_HOURS_PER_STAFF_DAY = 4
 DEFAULT_WORK_DAYS_PER_MONTH = 20
-DEFAULT_MONTHLY_PARTS_BUDGET = 1000
-DEFAULT_ANNUAL_PARTS_BUDGET = DEFAULT_MONTHLY_PARTS_BUDGET * 12
+DEFAULT_ANNUAL_PARTS_BUDGET = 80_000
+DEFAULT_MONTHLY_PARTS_BUDGET = round(DEFAULT_ANNUAL_PARTS_BUDGET / 12)
+
+# Bump when default settings shape changes (triggers one-time merge migration).
+SETTINGS_SCHEMA_VERSION = 2
 
 # Sentinel value used in the month dropdown to mean "aggregate across every
 # month loaded into the dashboard"; treated specially by callbacks and figure
@@ -89,6 +92,7 @@ def default_app_settings():
         "staffCapacityByMonth": {},
         "monthlyPartsBudget": DEFAULT_MONTHLY_PARTS_BUDGET,
         "annualPartsBudget": DEFAULT_ANNUAL_PARTS_BUDGET,
+        "settingsSchemaVersion": SETTINGS_SCHEMA_VERSION,
     }
 
 

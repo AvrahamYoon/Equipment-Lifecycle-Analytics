@@ -110,8 +110,9 @@ def settings_page_body():
             ),
             section(
                 "Parts budget (Overview donuts)",
-                "Monthly and annual parts spend vs budget on the Overview page. Default monthly budget is $1,000; "
-                "annual defaults to $12,000 unless you change it here.",
+                "Monthly and annual parts budgets are independent — set each to match how you "
+                "plan spend (defaults: $80,000 / year and $6,667 / month). Click Apply to save "
+                "to data/settings/ on the server (shared for all users).",
                 [
                     html.Div(
                         [

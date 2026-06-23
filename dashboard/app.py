@@ -13,7 +13,7 @@ from dashboard.layouts.app_shell import build_root_layout
 def create_app() -> Dash:
     # Avoid tab title stuck on Dash's default "Updating..." when many callbacks
     # fire from one interaction (e.g. Settings Apply → store → overview + table + icons).
-    app = Dash(__name__, update_title=None)
+    app = Dash(__name__, update_title=None, suppress_callback_exceptions=True)
     app.title = "Work Order Dashboard"
     configure_auth(app)
     configure_exports(app)

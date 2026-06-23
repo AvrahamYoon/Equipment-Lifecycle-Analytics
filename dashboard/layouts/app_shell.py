@@ -9,6 +9,7 @@ from dashboard.layouts.page_requests import request_roster_page_body
 from dashboard.layouts.page_overview import overview_page_body
 from dashboard.layouts.page_replacement import replacement_page_body
 from dashboard.layouts.page_settings import settings_page_body
+from dashboard.settings_persist import load_dashboard_settings
 
 _DEFAULTS = C.default_app_settings()
 
@@ -60,7 +61,7 @@ def build_root_layout(month_options, default_month):
     return html.Div(
         [
             dcc.Location(id="url", refresh=False),
-            dcc.Store(id="settings-store", storage_type="local", data=C.default_app_settings()),
+            dcc.Store(id="settings-store", data=load_dashboard_settings()),
             dcc.Store(id="chart-drill-store", storage_type="memory"),
             html.Div(
                 [
