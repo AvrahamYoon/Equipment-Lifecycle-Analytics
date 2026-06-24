@@ -20,6 +20,13 @@ DEFAULT_WORK_DAYS_PER_MONTH = 20
 DEFAULT_ANNUAL_PARTS_BUDGET = 80_000
 DEFAULT_MONTHLY_PARTS_BUDGET = round(DEFAULT_ANNUAL_PARTS_BUDGET / 12)
 
+# Straight-line depreciation (Replacement table).
+DEFAULT_USEFUL_LIFE_YEARS = 8
+DEPRECIATION_SALVAGE_PCT = 0.05
+# Age / useful-life cutoffs for Replacement status (parallel to repair % rules).
+LIFE_REPLACE_RATIO = 1.0
+LIFE_MONITOR_RATIO = 0.80
+
 # Bump when default settings shape changes (triggers one-time merge migration).
 SETTINGS_SCHEMA_VERSION = 2
 
@@ -170,3 +177,18 @@ def replace_status(labor, parts, new_price):
     if combined >= 0.60 * np:
         return "Monitor"
     return "Good"
+
+
+_REPLACE_STATUS_RANK = {"Good": 0, "Monitor": 1, "Replace": 2}
+
+
+def combine_replace_status(*statuses: str | None) -> str:
+    """Return the most urgent Replace / Monitor / Good among several signals."""
+    best = "Good"
+    for status in statuses:
+        if not status:
+            continue
+        label = str(status).strip()
+        if _REPLACE_STATUS_RANK.get(label, 0) > _REPLACE_STATUS_RANK[best]:
+            best = label
+    return best

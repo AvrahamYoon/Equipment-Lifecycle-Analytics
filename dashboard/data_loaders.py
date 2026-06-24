@@ -24,6 +24,10 @@ from dashboard.taxonomy import (
     norm_equip_id,
     normalize_equip_type,
 )
+from dashboard.logic.depreciation import (
+    build_equip_meta_lookup,
+    build_purchase_depreciation_stats,
+)
 from dashboard.sql_exec import merge_frames_by_name, run_csv_sql
 
 
@@ -281,6 +285,11 @@ try:
     _service_prices = build_service_price_map(df_service)
     df_repairs = apply_new_prices_to_repairs(
         df_repairs, _purchase_prices, _service_prices, _valuation_sheet
+    )
+    _equip_meta_lookup = build_equip_meta_lookup(df_equip)
+    _purchase_depreciation_stats = build_purchase_depreciation_stats(
+        C.PURCHASE_CSV,
+        _equip_type_map,
     )
 except FileNotFoundError as e:
     raise SystemExit(

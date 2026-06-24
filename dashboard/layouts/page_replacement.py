@@ -5,6 +5,7 @@ from dash import dcc, html, dash_table
 from dashboard import constants as C
 from dashboard.logic.repair_count_bins import REPAIR_COUNT_BIN_LABELS
 from valuation import PRICE_BASIS_TOOLTIP
+from dashboard.logic.depreciation import BOOK_VALUE_TOOLTIP
 from dashboard.layouts.page_common import table_info_bar
 
 _DEFAULTS = C.default_app_settings()
@@ -67,9 +68,17 @@ def replacement_page_body():
                                     html.Code("data/repairs/"),
                                     " (the header month control does ",
                                     html.Strong("not"),
-                                    " apply here). Compare to estimated new price: Replace >= 80%, Monitor 60-80%, Good < 60%.",
+                                    " apply here). ",
+                                    html.Strong("Status"),
+                                    " uses whichever signal is worse: repair spend vs new price ",
+                                    "(Replace ≥ 80%, Monitor 60–80%), or age vs useful life ",
+                                    "(Replace when fully depreciated, Monitor ≥ 80% of life). ",
+                                    html.Strong("Book value"),
+                                    " is estimated remaining accounting value after straight-line ",
+                                    "depreciation (down to 5% salvage).",
                                 ],
                                 className="page-hero-desc",
+                                title=BOOK_VALUE_TOOLTIP,
                             ),
                         ]
                     ),

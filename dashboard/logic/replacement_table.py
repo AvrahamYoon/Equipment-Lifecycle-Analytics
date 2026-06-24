@@ -7,11 +7,20 @@ from disk); the dashboard wires this independently of the header month filter.
 import pandas as pd
 
 from dashboard import constants as C
+from dashboard import data_loaders as loaders
 from valuation import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
 from dashboard.logic.buildings import normalize_building_value
+from dashboard.logic.depreciation import (
+    DEP_BASIS_COLUMN,
+    DEP_BASIS_CONFIRMED,
+    DEP_BASIS_ESTIMATED,
+    DEP_BASIS_UNKNOWN,
+    life_replace_status,
+    resolve_depreciation,
+)
 from dashboard.logic.repair_count_bins import equip_ids_for_repair_count_bin
 
-_MARKDOWN_COLS = frozenset({"Status", PRICE_BASIS_COLUMN})
+_MARKDOWN_COLS = frozenset({"Status", PRICE_BASIS_COLUMN, DEP_BASIS_COLUMN})
 
 _STATUS_PILL_HTML = {
     "Replace": '<span class="fm-pill fm-pill--replace">Replace</span>',
@@ -24,6 +33,12 @@ _BASIS_PILL_HTML = {
     "Valuation": '<span class="fm-pill fm-pill--valuation">Valuation</span>',
     "Estimated": '<span class="fm-pill fm-pill--estimated">Estimated</span>',
     "—": '<span class="fm-pill fm-pill--unknown">—</span>',
+}
+
+_DEP_BASIS_PILL_HTML = {
+    DEP_BASIS_CONFIRMED: '<span class="fm-pill fm-pill--accurate">Confirmed</span>',
+    DEP_BASIS_ESTIMATED: '<span class="fm-pill fm-pill--estimated">Estimated</span>',
+    DEP_BASIS_UNKNOWN: '<span class="fm-pill fm-pill--unknown">—</span>',
 }
 
 from dashboard.logic.overview.settings_merge import merge_app_settings
@@ -81,6 +96,8 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     }
     if "priceSource" in rep.columns:
         agg_cols["priceSource"] = ("priceSource", "first")
+    if "equipCategory" in rep.columns:
+        agg_cols["equipCategory"] = ("equipCategory", "first")
     agg = rep.groupby(group_col, dropna=False).agg(**agg_cols).reset_index(drop=True)
     if "priceSource" not in agg.columns:
         agg["priceSource"] = ""
@@ -89,8 +106,42 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     # Dollar cutoffs = that percentage of *estimated new equipment price*
     agg["80% of new price"] = agg["newPrice"] * 0.80
     agg["60% of new price"] = agg["newPrice"] * 0.60
+
+    dep_stats = loaders._purchase_depreciation_stats
+    equip_meta = loaders._equip_meta_lookup
+
+    def _depreciation_row(r):
+        equip_type = ""
+        if "equipCategory" in r.index and pd.notna(r.get("equipCategory")):
+            equip_type = str(r["equipCategory"])
+        res = resolve_depreciation(
+            r["equipId"],
+            str(r.get("equipment") or ""),
+            equip_type=equip_type,
+            new_price=r.get("newPrice"),
+            stats=dep_stats,
+            equip_meta=equip_meta,
+        )
+        return pd.Series(
+            {
+                "age_years": res.age_years,
+                "useful_life_years": res.useful_life_years,
+                "book_value": res.book_value,
+                "basis_label": res.basis_label,
+            }
+        )
+
+    dep = agg.apply(_depreciation_row, axis=1)
+    agg["Age (yrs)"] = dep["age_years"]
+    agg["Useful Life (y)"] = dep["useful_life_years"]
+    agg["Book Value"] = dep["book_value"]
+    agg[DEP_BASIS_COLUMN] = dep["basis_label"]
+
     agg["Status"] = agg.apply(
-        lambda r: C.replace_status(r["labor"], r["parts"], r["newPrice"]),
+        lambda r: C.combine_replace_status(
+            C.replace_status(r["labor"], r["parts"], r["newPrice"]),
+            life_replace_status(r["Age (yrs)"], r["Useful Life (y)"]),
+        ),
         axis=1,
     )
 
@@ -133,10 +184,22 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
             "Total Cost",
             "New Price",
             PRICE_BASIS_COLUMN,
+            "Age (yrs)",
+            "Useful Life (y)",
+            "Book Value",
+            DEP_BASIS_COLUMN,
             "80% of new price",
             "60% of new price",
         ]
     ].copy()
+
+    for col in ("Age (yrs)", "Useful Life (y)"):
+        table_data[col] = table_data[col].apply(
+            lambda x: f"{x:.1f}" if pd.notna(x) else "—"
+        )
+    table_data["Book Value"] = table_data["Book Value"].apply(
+        lambda x: f"${x:,.2f}" if pd.notna(x) else "—"
+    )
 
     for col in [
         "Parts Cost",
@@ -161,6 +224,8 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         r["Status"] = _STATUS_PILL_HTML.get(s, _STATUS_PILL_HTML["Good"])
         pb = r.get(PRICE_BASIS_COLUMN, "—")
         r[PRICE_BASIS_COLUMN] = _BASIS_PILL_HTML.get(pb, _BASIS_PILL_HTML["—"])
+        db = r.get(DEP_BASIS_COLUMN, DEP_BASIS_UNKNOWN)
+        r[DEP_BASIS_COLUMN] = _DEP_BASIS_PILL_HTML.get(db, _DEP_BASIS_PILL_HTML[DEP_BASIS_UNKNOWN])
 
     cond_style = []
     cond_style.append(
@@ -174,6 +239,14 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         {
             "if": {"column_id": "Total Cost"},
             "fontWeight": "600",
+        }
+    )
+
+    cond_style.append(
+        {
+            "if": {"column_id": "Book Value"},
+            "fontWeight": "600",
+            "color": "#0f172a",
         }
     )
 
