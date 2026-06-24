@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any
 from xml.sax.saxutils import escape
@@ -218,11 +217,16 @@ def _chart_sections(
     return footer, kpi_rows, charts
 
 
-def build_overview_pdf(month_key: str, settings: dict[str, Any] | None = None) -> bytes:
+def build_overview_pdf(
+    month_key: str,
+    settings: dict[str, Any] | None = None,
+    *,
+    pdf_subtitle: str | None = None,
+) -> bytes:
     """Render the Overview page charts and KPIs into a PDF report."""
     footer, kpi_rows, charts = _chart_sections(month_key, settings)
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     scope = _month_label(month_key)
+    subtitle = pdf_subtitle or f"Scope: {scope}"
 
     buffer = BytesIO()
     page_size = landscape(A4)
@@ -291,7 +295,7 @@ def build_overview_pdf(month_key: str, settings: dict[str, Any] | None = None) -
 
     story: list = [
         Paragraph(escape("Work Order Dashboard — Overview"), title_style),
-        Paragraph(escape(f"Scope: {scope} · Generated {stamp}"), subtitle_style),
+        Paragraph(escape(subtitle), subtitle_style),
         Paragraph(escape(footer), footer_style),
         _kpi_table(kpi_rows, usable_width, kpi_value_style, kpi_label_style),
     ]
