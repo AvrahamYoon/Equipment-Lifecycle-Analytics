@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from dashboard import constants as C
-from dashboard.logic.buildings import normalize_building_value
+from dashboard.logic.buildings import abbreviate_building, normalize_building_value
 from dashboard.logic.repair_count_bins import REPAIR_COUNT_BIN_LABELS, repair_count_bin_label
 from dashboard.taxonomy import chart_category_rank, equipment_chart_class
 
@@ -196,18 +196,21 @@ def build_repair_hours_by_building_figure(rep: pd.DataFrame) -> go.Figure:
 
     names = sorted(hours_map.keys(), key=lambda k: (-hours_map[k], k))
     hours = [hours_map[n] for n in names]
+    labels = [abbreviate_building(n) for n in names]
     _pal = [C.C_BLUE, C.C_PURPLE, C.C_GREEN, C.C_ORANGE, C.C_YELLOW, C.C_PINK, "#06b6d4", "#6366f1"]
     bar_colors = [_pal[i % len(_pal)] for i in range(len(names))]
 
     fig = go.Figure(
         go.Bar(
-            x=names,
+            x=labels,
             y=hours,
+            customdata=names,
             marker=dict(color=bar_colors, opacity=0.85, line=dict(width=0)),
             text=[f"{h:.1f}" for h in hours],
             textposition="outside",
             textfont=dict(size=11, color=C.COLOR_TEXT_SECONDARY),
             cliponaxis=False,
+            hovertemplate="%{customdata}<br>Hours: %{y:.1f}<extra></extra>",
         )
     )
     fig.update_layout(

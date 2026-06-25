@@ -3,7 +3,7 @@
 import pandas as pd
 
 from dashboard.calendar_util import business_days_inclusive
-from dashboard.logic.buildings import normalize_building_value
+from dashboard.logic.buildings import display_building_name, normalize_building_value
 from dashboard.taxonomy import filter_equip_id_substr, norm_equip_id
 
 
@@ -72,7 +72,7 @@ def build_repair_orders_table(svc: pd.DataFrame, filters: dict | None = None):
             {
                 "Equipment": name,
                 "Equipment ID": eid,
-                "Building": building,
+                "Building": display_building_name(building) if building else "",
                 "Category": cat,
                 "Status": st,
                 "Start (scheduled)": _fmt_dt(sd) if sched_col else "",

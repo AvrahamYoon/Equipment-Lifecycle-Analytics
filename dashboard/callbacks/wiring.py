@@ -25,7 +25,7 @@ from dashboard.data_loaders import (
 )
 from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.figures import build_hidden_chart_placeholder
-from dashboard.logic.buildings import normalize_building_value
+from dashboard.logic.buildings import normalize_building_value, resolve_building_filter_value
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple, sanitise_parts_budget_pair
 from dashboard.settings_persist import save_dashboard_settings
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
@@ -368,10 +368,13 @@ def register_callbacks(app):
                 "building": "",
                 "repair_count_bin": "",
             }
+        building = resolve_building_filter_value(
+            click["points"][0].get("customdata") or label
+        )
         return "/replacement", {
             "page": "replacement",
             "category": "",
-            "building": label,
+            "building": building,
             "repair_count_bin": "",
         }
 

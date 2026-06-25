@@ -228,7 +228,7 @@ def replacement_page_body():
         className="fm-toolbar",
     )
 
-    _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "80% of new price", "60% of new price"]
+    _money_cols = ["Parts Cost", "Labor Cost", "Total Cost", "New Price", "Book Value"]
     _pill_col = {
         "textAlign": "center",
         "padding": "10px 8px",
@@ -246,7 +246,7 @@ def replacement_page_body():
         },
         {"if": {"column_id": "Equipment"}, "minWidth": 200, "maxWidth": 300},
         {"if": {"column_id": "ID"}, "minWidth": 128, "maxWidth": 180},
-        {"if": {"column_id": "Building"}, "minWidth": 150, "maxWidth": 220},
+        {"if": {"column_id": "Building"}, "minWidth": 52, "width": 56, "maxWidth": 64, "textAlign": "center"},
         {
             "if": {"column_id": "Price basis"},
             "minWidth": 118,

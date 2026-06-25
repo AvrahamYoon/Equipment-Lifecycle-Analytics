@@ -9,7 +9,7 @@ import pandas as pd
 from dashboard import constants as C
 from dashboard import data_loaders as loaders
 from valuation import PRICE_BASIS_COLUMN, PRICE_SOURCE_LABEL
-from dashboard.logic.buildings import normalize_building_value
+from dashboard.logic.buildings import display_building_name, normalize_building_value
 from dashboard.logic.depreciation import (
     DEP_BASIS_COLUMN,
     DEP_BASIS_CONFIRMED,
@@ -103,9 +103,6 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         agg["priceSource"] = ""
 
     agg["Total Cost"] = agg["labor"] + agg["parts"]
-    # Dollar cutoffs = that percentage of *estimated new equipment price*
-    agg["80% of new price"] = agg["newPrice"] * 0.80
-    agg["60% of new price"] = agg["newPrice"] * 0.60
 
     dep_stats = loaders._purchase_depreciation_stats
     equip_meta = loaders._equip_meta_lookup
@@ -163,11 +160,13 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         lambda s: PRICE_SOURCE_LABEL.get(str(s).strip() if pd.notna(s) else "", "—")
     )
 
+    agg["building_display"] = agg["building"].map(display_building_name)
+
     table_data = agg.rename(
         columns={
             "equipment": "Equipment",
             "equipId": "ID",
-            "building": "Building",
+            "building_display": "Building",
             "newPrice": "New Price",
             "priceSource": PRICE_BASIS_COLUMN,
             "parts": "Parts Cost",
@@ -188,8 +187,6 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
             "Useful Life (y)",
             "Book Value",
             DEP_BASIS_COLUMN,
-            "80% of new price",
-            "60% of new price",
         ]
     ].copy()
 
@@ -206,8 +203,6 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
         "Labor Cost",
         "Total Cost",
         "New Price",
-        "80% of new price",
-        "60% of new price",
     ]:
         table_data[col] = table_data[col].apply(lambda x: f"${x:,.2f}")
 
