@@ -22,6 +22,7 @@ from valuation import (
 DEP_BASIS_COLUMN = "Depreciation basis"
 DEP_BASIS_CONFIRMED = "Confirmed"
 DEP_BASIS_ESTIMATED = "Estimated"
+DEP_BASIS_MANUAL = "Manual"
 DEP_BASIS_UNKNOWN = "—"
 
 BOOK_VALUE_TOOLTIP = (
@@ -331,4 +332,38 @@ def resolve_depreciation(
         basis_label=basis_label,
         age_source=age_source,
         life_source=life_source,
+    )
+
+
+def extend_depreciation_result(
+    res: DepreciationResult,
+    extra_years: float,
+    *,
+    new_price: float | None = None,
+) -> DepreciationResult:
+    """Apply a manual useful-life extension after base depreciation resolution."""
+    try:
+        extra = float(extra_years)
+    except (TypeError, ValueError):
+        return res
+    if extra <= 0 or res.useful_life_years is None:
+        return res
+
+    useful_life = float(res.useful_life_years) + extra
+    try:
+        cost = float(new_price if new_price is not None else 0)
+    except (TypeError, ValueError):
+        cost = 0.0
+
+    book_value = res.book_value
+    if res.age_years is not None and useful_life > 0 and cost > 0:
+        book_value = _book_value(cost, res.age_years, useful_life)
+
+    return DepreciationResult(
+        age_years=res.age_years,
+        useful_life_years=useful_life,
+        book_value=book_value,
+        basis_label=DEP_BASIS_MANUAL,
+        age_source=res.age_source,
+        life_source="manual_extension",
     )

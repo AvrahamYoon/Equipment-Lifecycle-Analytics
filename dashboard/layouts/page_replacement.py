@@ -73,6 +73,11 @@ def replacement_page_body():
                                     " uses whichever signal is worse: repair spend vs new price ",
                                     "(Replace ≥ 80%, Monitor 60–80%), or age vs useful life ",
                                     "(Replace when fully depreciated, Monitor ≥ 80% of life). ",
+                                    "Select a row below to ",
+                                    html.Strong("extend useful life"),
+                                    " after a field inspection (saved to ",
+                                    html.Code("data/settings/equipment_life_overrides.csv"),
+                                    "). ",
                                     html.Strong("Book value"),
                                     " is estimated remaining accounting value after straight-line ",
                                     "depreciation (down to 5% salvage).",
@@ -247,6 +252,7 @@ def replacement_page_body():
         {"if": {"column_id": "Equipment"}, "minWidth": 200, "maxWidth": 300},
         {"if": {"column_id": "ID"}, "minWidth": 128, "maxWidth": 180},
         {"if": {"column_id": "Building"}, "minWidth": 52, "width": 56, "maxWidth": 64, "textAlign": "center"},
+        {"if": {"column_id": "Life adj."}, "minWidth": 72, "width": 80, "maxWidth": 96, "textAlign": "center"},
         {
             "if": {"column_id": "Price basis"},
             "minWidth": 118,
@@ -262,10 +268,102 @@ def replacement_page_body():
         {"if": {"column_id": c}, "textAlign": "right"} for c in _money_cols
     ]
 
+    _inp = {
+        "width": "100%",
+        "padding": "10px 12px",
+        "borderRadius": 8,
+        "border": f"1px solid {C.COLOR_BORDER}",
+        "fontSize": 14,
+        "fontFamily": "inherit",
+        "boxSizing": "border-box",
+    }
+    _field_label = {
+        "fontSize": 11,
+        "fontWeight": 600,
+        "color": C.COLOR_TEXT_MUTED,
+        "letterSpacing": "0.08em",
+        "textTransform": "uppercase",
+        "marginBottom": 6,
+        "display": "block",
+    }
+    _field_hint = {
+        "fontSize": 11,
+        "color": C.COLOR_TEXT_MUTED,
+        "marginTop": 4,
+        "marginBottom": 10,
+        "display": "block",
+    }
+
+    life_panel = html.Div(
+        [
+            html.Div("Extend useful life", style={"fontWeight": 800, "marginBottom": 8}),
+            html.Div(
+                "Select an equipment row in the table to adjust useful life after a field inspection.",
+                id="replace-life-panel-hint",
+                style={"fontSize": 13, "color": C.COLOR_TEXT_SECONDARY, "marginBottom": 12},
+            ),
+            html.Div(id="replace-life-panel-summary", style={"fontSize": 13, "marginBottom": 12}),
+            html.Label("Extra years", style=_field_label),
+            dcc.Input(
+                id="replace-life-extra-years",
+                type="number",
+                min=0,
+                max=20,
+                step=0.5,
+                placeholder="e.g. 2",
+                className="filter-input",
+                style={**_inp, "maxWidth": 160},
+            ),
+            html.Span(
+                "Added on top of the system-estimated useful life (0 clears the override).",
+                style=_field_hint,
+            ),
+            html.Label("Review by (optional)", style=_field_label),
+            dcc.Input(
+                id="replace-life-review-by",
+                type="text",
+                placeholder="YYYY-MM-DD",
+                className="filter-input",
+                style={**_inp, "maxWidth": 200},
+            ),
+            html.Label("Note (optional)", style=_field_label),
+            dcc.Textarea(
+                id="replace-life-note",
+                placeholder="Inspection findings, condition, etc.",
+                style={**_inp, "minHeight": 72, "resize": "vertical"},
+            ),
+            html.Div(
+                [
+                    html.Button(
+                        "Save extension",
+                        id="replace-life-save-btn",
+                        n_clicks=0,
+                        className="btn-primary",
+                    ),
+                    html.Button(
+                        "Clear extension",
+                        id="replace-life-clear-btn",
+                        n_clicks=0,
+                        className="btn-secondary",
+                        style={"marginLeft": 10},
+                    ),
+                ],
+                style={"marginTop": 14, "display": "flex", "flexWrap": "wrap", "gap": 10},
+            ),
+            html.Div(
+                id="replace-life-message",
+                style={"marginTop": 10, "fontSize": 13, "color": C.COLOR_TEXT_SECONDARY},
+            ),
+        ],
+        id="replace-life-panel",
+        style={**C.CARD_STYLE, "padding": "18px 20px", "marginTop": 16, "display": "none"},
+    )
+
     return html.Div(
         [
             hero,
             toolbar,
+            dcc.Store(id="replace-life-overrides-version", data=0),
             table_info_bar(
                 row_count_id="replace-row-count",
                 page_size_id="replace-page-size",
@@ -284,6 +382,8 @@ def replacement_page_body():
                         style_data_conditional=[],
                         markdown_options={"html": True},
                         tooltip_header={"Price basis": PRICE_BASIS_TOOLTIP},
+                        row_selectable="single",
+                        selected_rows=[],
                         page_size=C.DEFAULT_PAGE_SIZE,
                         page_action="native",
                         sort_action="native",
@@ -305,6 +405,7 @@ def replacement_page_body():
                 ],
                 className="table-card",
             ),
+            life_panel,
         ],
         id="page-replacement",
         className="app-page app-page--standard",

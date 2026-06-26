@@ -2,6 +2,7 @@
 
 from urllib.parse import urlencode
 
+import pandas as pd
 from dash import Input, Output, State, callback_context, html, no_update
 from dash.exceptions import PreventUpdate
 
@@ -22,6 +23,7 @@ from dashboard.data_loaders import (
     df_req,
     df_repairs,
     df_service,
+    reload_life_overrides,
 )
 from dashboard.logic.overview import build_overview
 from dashboard.logic.overview.figures import build_hidden_chart_placeholder
@@ -29,7 +31,8 @@ from dashboard.logic.buildings import normalize_building_value, resolve_building
 from dashboard.logic.overview.settings_merge import merge_app_settings, staff_capacity_for_month, sanitise_capacity_triple, sanitise_parts_budget_pair
 from dashboard.settings_persist import save_dashboard_settings
 from dashboard.logic.repair_orders_table import build_repair_orders_table, repair_order_filter_options
-from dashboard.logic.replacement_table import build_replacement_table
+from dashboard.logic.replacement_table import build_replacement_table, replacement_life_editor_context
+from dashboard.logic.life_overrides import upsert_life_override
 from dashboard.logic.request_roster_table import build_request_roster_table
 from dashboard.logic.service_scope import prepare_service_for_display
 from dashboard.export.settings_codec import encode_settings
@@ -39,6 +42,7 @@ from dashboard.session_scope import (
     apply_building_scope,
     normalize_building_scope,
 )
+from dashboard.taxonomy import ensure_equip_id_norm_column, norm_equip_id
 
 from flask import session as flask_session
 
@@ -73,6 +77,66 @@ def _format_row_count(filtered: int, total: int, item_singular: str):
 def _empty_state_style(visible: bool) -> dict:
     """Toggle the ``.empty-state`` panel's display without losing its CSS rules."""
     return {"display": "flex"} if visible else {"display": "none"}
+
+
+def _replacement_equip_snapshot(equip_id: str) -> dict | None:
+    """Cumulative repair + price fields for one equipment ID (Replacement scope)."""
+    eid = norm_equip_id(equip_id)
+    if not eid:
+        return None
+    rep = ensure_equip_id_norm_column(df_repairs.copy())
+    rep = rep[rep["month_key"].astype(str) != "NaT"]
+    rep = apply_building_scope(rep)
+    rep = rep[rep["equipIdNorm"].astype(str) == eid]
+    if rep.empty:
+        return None
+    equip_type = ""
+    if "equipCategory" in rep.columns and pd.notna(rep["equipCategory"].iloc[0]):
+        equip_type = str(rep["equipCategory"].iloc[0])
+    return {
+        "equip_id": eid,
+        "equipment": str(rep["equipment"].iloc[0]),
+        "new_price": rep["newPrice"].iloc[0],
+        "labor": float(rep["labor"].sum()),
+        "parts": float(rep["parts"].sum()),
+        "equip_type": equip_type,
+    }
+
+
+def _replace_life_panel_style(visible: bool) -> dict:
+    base = dict(C.CARD_STYLE)
+    base.update({"padding": "18px 20px", "marginTop": 16})
+    base["display"] = "block" if visible else "none"
+    return base
+
+
+def _replace_life_summary_children(ctx: dict):
+    return html.Div(
+        [
+            html.Div(
+                [html.Strong(ctx["equipment_name"]), html.Span(f" ({ctx['equip_id']})")],
+                style={"marginBottom": 6},
+            ),
+            html.Div(
+                f"Age {ctx['age_label']} y · System useful life {ctx['base_useful_life_label']} y"
+                f" · Effective {ctx['effective_useful_life_label']} y",
+                style={"color": C.COLOR_TEXT_SECONDARY, "marginBottom": 6},
+            ),
+            html.Div(
+                [
+                    "Status — repair: ",
+                    html.Strong(ctx["repair_status"]),
+                    " · life (system): ",
+                    html.Strong(ctx["base_life_status"] or "—"),
+                    " · life (effective): ",
+                    html.Strong(ctx["effective_life_status"] or "—"),
+                    " · combined: ",
+                    html.Strong(ctx["combined_status"]),
+                ],
+                style={"fontSize": 12, "color": C.COLOR_TEXT_MUTED, "lineHeight": 1.5},
+            ),
+        ]
+    )
 
 
 def _building_options_from_data() -> list[dict]:
@@ -452,6 +516,7 @@ def register_callbacks(app):
         Input("replace-filter-equipment", "value"),
         Input("replace-filter-id", "value"),
         Input("replace-page-size", "value"),
+        Input("replace-life-overrides-version", "data"),
     )
     def update_replacement_table(
         settings_data,
@@ -462,7 +527,9 @@ def register_callbacks(app):
         rep_equip,
         rep_id,
         page_size_value,
+        _life_version,
     ):
+        _ = _life_version
         # Replacement is always **cumulative**: every repair row from every
         # loaded month (header month scope applies only to Overview & Order roster).
         rep = df_repairs[df_repairs["month_key"].astype(str) != "NaT"]
@@ -486,6 +553,129 @@ def register_callbacks(app):
             _format_row_count(len(records), total, "equipment item"),
             _empty_state_style(len(records) == 0),
         )
+
+    @app.callback(
+        Output("replace-life-panel", "style"),
+        Output("replace-life-panel-summary", "children"),
+        Output("replace-life-extra-years", "value"),
+        Output("replace-life-note", "value"),
+        Output("replace-life-review-by", "value"),
+        Input("replace-table", "selected_rows"),
+        Input("replace-life-overrides-version", "data"),
+        State("replace-table", "data"),
+    )
+    def sync_replace_life_panel(selected_rows, _life_version, table_data):
+        _ = _life_version
+        if not selected_rows or not table_data:
+            return (
+                _replace_life_panel_style(False),
+                "",
+                None,
+                "",
+                "",
+            )
+        idx = selected_rows[0]
+        if idx < 0 or idx >= len(table_data):
+            raise PreventUpdate
+        row = table_data[idx]
+        equip_id = row.get("ID", "")
+        snap = _replacement_equip_snapshot(equip_id)
+        if not snap:
+            return (
+                _replace_life_panel_style(True),
+                html.Div(f"No repair data found for {equip_id}."),
+                None,
+                "",
+                "",
+            )
+        ctx = replacement_life_editor_context(
+            snap["equip_id"],
+            snap["equipment"],
+            equip_type=snap["equip_type"],
+            new_price=snap["new_price"],
+            labor=snap["labor"],
+            parts=snap["parts"],
+        )
+        extra_val = ctx["extra_years"] if ctx["extra_years"] > 0 else None
+        return (
+            _replace_life_panel_style(True),
+            _replace_life_summary_children(ctx),
+            extra_val,
+            ctx["note"],
+            ctx["review_by"],
+        )
+
+    @app.callback(
+        Output("replace-life-overrides-version", "data"),
+        Output("replace-life-message", "children"),
+        Input("replace-life-save-btn", "n_clicks"),
+        Input("replace-life-clear-btn", "n_clicks"),
+        State("replace-table", "selected_rows"),
+        State("replace-table", "data"),
+        State("replace-life-extra-years", "value"),
+        State("replace-life-note", "value"),
+        State("replace-life-review-by", "value"),
+        State("replace-life-overrides-version", "data"),
+        prevent_initial_call=True,
+    )
+    def persist_replace_life_extension(
+        save_clicks,
+        clear_clicks,
+        selected_rows,
+        table_data,
+        extra_years,
+        note,
+        review_by,
+        version,
+    ):
+        triggered = [t["prop_id"] for t in callback_context.triggered if t["prop_id"] != "."]
+        if not triggered:
+            raise PreventUpdate
+        action = triggered[0].split(".")[0]
+        if not selected_rows or not table_data:
+            return no_update, "Select an equipment row first."
+        idx = selected_rows[0]
+        if idx < 0 or idx >= len(table_data):
+            raise PreventUpdate
+        equip_id = table_data[idx].get("ID", "")
+        snap = _replacement_equip_snapshot(equip_id)
+        if not snap:
+            return no_update, f"Could not load data for {equip_id}."
+
+        try:
+            if action == "replace-life-clear-btn":
+                upsert_life_override(snap["equip_id"], 0)
+                msg = f"Cleared useful-life extension for {snap['equip_id']}."
+            else:
+                upsert_life_override(
+                    snap["equip_id"],
+                    extra_years,
+                    note=note or "",
+                    review_by=review_by or "",
+                )
+            reload_life_overrides()
+            if action != "replace-life-clear-btn":
+                ctx = replacement_life_editor_context(
+                    snap["equip_id"],
+                    snap["equipment"],
+                    equip_type=snap["equip_type"],
+                    new_price=snap["new_price"],
+                    labor=snap["labor"],
+                    parts=snap["parts"],
+                )
+                extra = ctx["extra_years"]
+                if extra > 0:
+                    msg = (
+                        f"Saved +{extra:g}y useful life for {snap['equip_id']} "
+                        f"(effective {ctx['effective_useful_life_label']} y)."
+                    )
+                else:
+                    msg = f"Removed useful-life extension for {snap['equip_id']}."
+        except ValueError as exc:
+            return no_update, str(exc)
+
+        next_version = int(version or 0) + 1
+        return next_version, msg
 
     @app.callback(
         Output("order-roster-table", "columns"),

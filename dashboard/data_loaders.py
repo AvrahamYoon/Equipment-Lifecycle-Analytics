@@ -28,6 +28,7 @@ from dashboard.logic.depreciation import (
     build_equip_meta_lookup,
     build_purchase_depreciation_stats,
 )
+from dashboard.logic.life_overrides import format_life_adj, load_life_overrides
 from dashboard.sql_exec import merge_frames_by_name, run_csv_sql
 
 
@@ -291,6 +292,7 @@ try:
         C.PURCHASE_CSV,
         _equip_type_map,
     )
+    _life_overrides = load_life_overrides(C.EQUIPMENT_LIFE_OVERRIDES_CSV)
 except FileNotFoundError as e:
     raise SystemExit(
         f"{e}\n"
@@ -310,3 +312,10 @@ all_months = sorted(
 MONTH_OPTIONS = [{"label": C.ALL_MONTHS_LABEL, "value": C.ALL_MONTHS_KEY}] + [
     {"label": pd.Period(m).strftime("%B %Y"), "value": m} for m in all_months
 ]
+
+
+def reload_life_overrides() -> dict:
+    """Reload life-override CSV after UI edits."""
+    global _life_overrides
+    _life_overrides = load_life_overrides(C.EQUIPMENT_LIFE_OVERRIDES_CSV)
+    return _life_overrides

@@ -14,10 +14,13 @@ from dashboard.logic.depreciation import (
     DEP_BASIS_COLUMN,
     DEP_BASIS_CONFIRMED,
     DEP_BASIS_ESTIMATED,
+    DEP_BASIS_MANUAL,
     DEP_BASIS_UNKNOWN,
+    extend_depreciation_result,
     life_replace_status,
     resolve_depreciation,
 )
+from dashboard.logic.life_overrides import format_life_adj
 from dashboard.logic.repair_count_bins import equip_ids_for_repair_count_bin
 
 _MARKDOWN_COLS = frozenset({"Status", PRICE_BASIS_COLUMN, DEP_BASIS_COLUMN})
@@ -38,11 +41,12 @@ _BASIS_PILL_HTML = {
 _DEP_BASIS_PILL_HTML = {
     DEP_BASIS_CONFIRMED: '<span class="fm-pill fm-pill--accurate">Confirmed</span>',
     DEP_BASIS_ESTIMATED: '<span class="fm-pill fm-pill--estimated">Estimated</span>',
+    DEP_BASIS_MANUAL: '<span class="fm-pill fm-pill--valuation">Manual</span>',
     DEP_BASIS_UNKNOWN: '<span class="fm-pill fm-pill--unknown">—</span>',
 }
 
 from dashboard.logic.overview.settings_merge import merge_app_settings
-from dashboard.taxonomy import ensure_equip_id_norm_column, equipment_chart_class, filter_equip_id_substr
+from dashboard.taxonomy import ensure_equip_id_norm_column, equipment_chart_class, filter_equip_id_substr, norm_equip_id
 
 
 def _pick_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
@@ -52,10 +56,14 @@ def _pick_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
     return None
 
 
-def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
+def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None, life_overrides=None):
     """Returns (columns, records, style_data_conditional) for Dash DataTable."""
     merge_app_settings(app_settings)
     filters = filters or {}
+    if life_overrides is None:
+        from dashboard.data_loaders import _life_overrides
+
+        life_overrides = _life_overrides
 
     rep = ensure_equip_id_norm_column(rep, raw_col="equipId", norm_col="equipIdNorm")
     rep = rep[rep["equipIdNorm"].astype(str).str.len() > 0]
@@ -119,12 +127,18 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
             stats=dep_stats,
             equip_meta=equip_meta,
         )
+        eid = norm_equip_id(r["equipId"])
+        override = life_overrides.get(eid) if life_overrides else None
+        extra_years = override.extra_years if override else 0.0
+        if extra_years > 0:
+            res = extend_depreciation_result(res, extra_years, new_price=r.get("newPrice"))
         return pd.Series(
             {
                 "age_years": res.age_years,
                 "useful_life_years": res.useful_life_years,
                 "book_value": res.book_value,
                 "basis_label": res.basis_label,
+                "life_adj": extra_years,
             }
         )
 
@@ -133,6 +147,7 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     agg["Useful Life (y)"] = dep["useful_life_years"]
     agg["Book Value"] = dep["book_value"]
     agg[DEP_BASIS_COLUMN] = dep["basis_label"]
+    agg["life_adj_years"] = dep["life_adj"]
 
     agg["Status"] = agg.apply(
         lambda r: C.combine_replace_status(
@@ -161,6 +176,7 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     )
 
     agg["building_display"] = agg["building"].map(display_building_name)
+    agg["Life adj."] = agg["life_adj_years"].map(format_life_adj)
 
     table_data = agg.rename(
         columns={
@@ -185,6 +201,7 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
             PRICE_BASIS_COLUMN,
             "Age (yrs)",
             "Useful Life (y)",
+            "Life adj.",
             "Book Value",
             DEP_BASIS_COLUMN,
         ]
@@ -246,3 +263,67 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None):
     )
 
     return columns, records, cond_style
+
+
+def replacement_life_editor_context(
+    equip_id,
+    equipment_name: str,
+    *,
+    equip_type: str = "",
+    new_price=None,
+    labor=0,
+    parts=0,
+    life_overrides=None,
+):
+    """Base vs extended life and status signals for the manual-life editor panel."""
+    from dashboard.data_loaders import _equip_meta_lookup, _purchase_depreciation_stats
+
+    if life_overrides is None:
+        from dashboard.data_loaders import _life_overrides
+
+        life_overrides = _life_overrides
+
+    base = resolve_depreciation(
+        equip_id,
+        equipment_name or "",
+        equip_type=equip_type,
+        new_price=new_price,
+        stats=_purchase_depreciation_stats,
+        equip_meta=_equip_meta_lookup,
+    )
+    eid = norm_equip_id(equip_id)
+    override = life_overrides.get(eid) if life_overrides else None
+    extra = override.extra_years if override else 0.0
+    effective = (
+        extend_depreciation_result(base, extra, new_price=new_price)
+        if extra > 0
+        else base
+    )
+
+    repair_status = C.replace_status(labor, parts, new_price)
+    base_life_status = life_replace_status(base.age_years, base.useful_life_years)
+    effective_life_status = life_replace_status(
+        effective.age_years, effective.useful_life_years
+    )
+    combined = C.combine_replace_status(repair_status, effective_life_status)
+
+    def _fmt_years(v):
+        return f"{v:.1f}" if v is not None and pd.notna(v) else "—"
+
+    return {
+        "equip_id": eid,
+        "equipment_name": equipment_name or "",
+        "base_useful_life": base.useful_life_years,
+        "effective_useful_life": effective.useful_life_years,
+        "age_years": base.age_years,
+        "extra_years": extra,
+        "note": override.note if override else "",
+        "review_by": override.review_by if override else "",
+        "repair_status": repair_status,
+        "base_life_status": base_life_status,
+        "effective_life_status": effective_life_status,
+        "combined_status": combined,
+        "base_useful_life_label": _fmt_years(base.useful_life_years),
+        "effective_useful_life_label": _fmt_years(effective.useful_life_years),
+        "age_label": _fmt_years(base.age_years),
+    }

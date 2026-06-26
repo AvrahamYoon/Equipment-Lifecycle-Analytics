@@ -11,6 +11,9 @@ VALUATION_CSV = os.path.join(
     "data", "equipment", "purchase", "Equipment Valuation Sheet.csv"
 )
 EQUIPMENT_TYPE_CSV = os.path.join("data", "equipment", "purchase", "Type.csv")
+EQUIPMENT_LIFE_OVERRIDES_CSV = os.path.join(
+    "data", "settings", "equipment_life_overrides.csv"
+)
 
 BASE_AVAIL_DAYS = 311
 
