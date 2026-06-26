@@ -26,7 +26,7 @@ DEP_BASIS_MANUAL = "Manual"
 DEP_BASIS_UNKNOWN = "—"
 
 BOOK_VALUE_TOOLTIP = (
-    "Estimated accounting value after straight-line depreciation "
+    "Estimated accounting value after straight-line depreciation by month "
     "(original cost down to 5% salvage). Low book value means the asset "
     "is near the end of its useful life — not the same as repair spend."
 )
@@ -53,8 +53,8 @@ class PurchaseDepreciationStats:
 
 @dataclass(frozen=True)
 class DepreciationResult:
-    age_years: float | None
-    useful_life_years: float | None
+    age_months: float | None
+    useful_life_months: float | None
     book_value: float | None
     basis_label: str
     age_source: str
@@ -77,20 +77,35 @@ def _coerce_life(value) -> float | None:
     return n if n > 0 else None
 
 
-def _age_from_year(year: int, *, today: date | None = None) -> float:
+def _life_years_to_months(years: float) -> float:
+    return float(years) * 12.0
+
+
+def _age_in_months_from_year(year: int, *, today: date | None = None) -> int:
+    """Months since July 1 of the purchase year (mid-year when only a year is known)."""
     ref = today or date.today()
-    return (ref.year - int(year)) + 0.5
+    months = (ref.year - int(year)) * 12 + (ref.month - 7)
+    if ref.day < 1:
+        months -= 1
+    return max(0, months)
 
 
-def _age_from_purchase_date(purchase_date, *, today: date | None = None) -> float | None:
+def _age_in_months_from_date(purchase_date, *, today: date | None = None) -> int | None:
     ts = pd.to_datetime(purchase_date, errors="coerce")
     if pd.isna(ts):
         return None
-    ref = pd.Timestamp(today or date.today())
-    days = (ref - ts).days
-    if days < 0:
-        return 0.0
-    return days / 365.25
+    ref = today or date.today()
+    pur = ts.date()
+    months = (ref.year - pur.year) * 12 + (ref.month - pur.month)
+    if ref.day < pur.day:
+        months -= 1
+    return max(0, months)
+
+
+def format_depreciation_months(value: float | None) -> str:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return "—"
+    return f"{int(round(float(value)))} mo"
 
 
 def build_equip_meta_lookup(df_equip: pd.DataFrame) -> dict[str, dict[str, Any]]:
@@ -164,7 +179,7 @@ def build_purchase_depreciation_stats(
                 equip_type = normalize_equip_type(inferred)
 
         if year is not None:
-            age = _age_from_year(year, today=ref)
+            age = _age_in_months_from_year(year, today=ref)
             fleet_ages.append(age)
             if keyword:
                 keyword_ages.setdefault(keyword, []).append(age)
@@ -172,11 +187,11 @@ def build_purchase_depreciation_stats(
                 type_ages.setdefault(equip_type, []).append(age)
 
         if life is not None:
-            fleet_lives.append(life)
+            fleet_lives.append(_life_years_to_months(life))
             if keyword:
-                keyword_lives.setdefault(keyword, []).append(life)
+                keyword_lives.setdefault(keyword, []).append(_life_years_to_months(life))
             if equip_type:
-                type_lives.setdefault(equip_type, []).append(life)
+                type_lives.setdefault(equip_type, []).append(_life_years_to_months(life))
 
     def _type_stats(
         ages: dict[str, list[float]],
@@ -218,20 +233,20 @@ def _lookup_type_stats(
     return None
 
 
-def _book_value(cost: float, age: float, useful_life: float) -> float:
-    dep_ratio = min(1.0, max(0.0, age / useful_life))
+def _book_value(cost: float, age_months: float, useful_life_months: float) -> float:
+    dep_ratio = min(1.0, max(0.0, age_months / useful_life_months))
     floor = cost * C.DEPRECIATION_SALVAGE_PCT
     return max(floor, cost * (1.0 - dep_ratio))
 
 
 def life_replace_status(
-    age_years: float | None,
-    useful_life_years: float | None,
+    age_months: float | None,
+    useful_life_months: float | None,
 ) -> str | None:
     """Replace / Monitor from age vs useful life (book value near salvage)."""
-    if age_years is None or useful_life_years is None or useful_life_years <= 0:
+    if age_months is None or useful_life_months is None or useful_life_months <= 0:
         return None
-    ratio = float(age_years) / float(useful_life_years)
+    ratio = float(age_months) / float(useful_life_months)
     if ratio >= C.LIFE_REPLACE_RATIO:
         return "Replace"
     if ratio >= C.LIFE_MONITOR_RATIO:
@@ -256,39 +271,39 @@ def resolve_depreciation(
     meta = equip_meta.get(eid, {})
     purchase_row = stats.by_id.get(eid, {})
 
-    age_years: float | None = None
+    age_months: float | None = None
     age_source = "none"
     purchase_date = meta.get("purchase_date")
     if purchase_date is not None:
-        age_years = _age_from_purchase_date(purchase_date, today=today)
-        if age_years is not None:
+        age_months = _age_in_months_from_date(purchase_date, today=today)
+        if age_months is not None:
             age_source = "summary_date"
-    if age_years is None:
+    if age_months is None:
         year = purchase_row.get("year")
         if year is not None:
-            age_years = _age_from_year(year, today=today)
+            age_months = _age_in_months_from_year(year, today=today)
             age_source = "purchase_year"
-    if age_years is None:
+    if age_months is None:
         cohort = _lookup_type_stats(
             stats,
             equipment_name=equipment_name or "",
             equip_type=equip_type or meta.get("equip_type", ""),
         )
         if cohort and cohort.median_age is not None:
-            age_years = cohort.median_age
+            age_months = cohort.median_age
             age_source = "purchase_type_median"
         elif stats.fleet_median_age is not None:
-            age_years = stats.fleet_median_age
+            age_months = stats.fleet_median_age
             age_source = "purchase_fleet_median"
 
-    useful_life: float | None = None
+    useful_life_months: float | None = None
     life_source = "none"
     life_from_purchase = _coerce_life(purchase_row.get("life"))
     if life_from_purchase is not None:
-        useful_life = life_from_purchase
+        useful_life_months = _life_years_to_months(life_from_purchase)
         life_source = "purchase_id"
     elif meta.get("depreciation_years") is not None:
-        useful_life = meta["depreciation_years"]
+        useful_life_months = _life_years_to_months(meta["depreciation_years"])
         life_source = "summary"
     else:
         cohort = _lookup_type_stats(
@@ -297,13 +312,13 @@ def resolve_depreciation(
             equip_type=equip_type or meta.get("equip_type", ""),
         )
         if cohort and cohort.median_life is not None:
-            useful_life = cohort.median_life
+            useful_life_months = cohort.median_life
             life_source = "purchase_type_median"
         elif stats.fleet_median_life is not None:
-            useful_life = stats.fleet_median_life
+            useful_life_months = stats.fleet_median_life
             life_source = "purchase_fleet_median"
         else:
-            useful_life = float(C.DEFAULT_USEFUL_LIFE_YEARS)
+            useful_life_months = _life_years_to_months(float(C.DEFAULT_USEFUL_LIFE_YEARS))
             life_source = "default"
 
     try:
@@ -314,20 +329,20 @@ def resolve_depreciation(
     book_value: float | None = None
     basis_label = DEP_BASIS_UNKNOWN
     if (
-        age_years is not None
-        and useful_life is not None
-        and useful_life > 0
+        age_months is not None
+        and useful_life_months is not None
+        and useful_life_months > 0
         and cost > 0
     ):
-        book_value = _book_value(cost, age_years, useful_life)
+        book_value = _book_value(cost, age_months, useful_life_months)
         if age_source in _DIRECT_AGE_SOURCES and life_source in _DIRECT_LIFE_SOURCES:
             basis_label = DEP_BASIS_CONFIRMED
         else:
             basis_label = DEP_BASIS_ESTIMATED
 
     return DepreciationResult(
-        age_years=age_years,
-        useful_life_years=useful_life,
+        age_months=age_months,
+        useful_life_months=useful_life_months,
         book_value=book_value,
         basis_label=basis_label,
         age_source=age_source,
@@ -337,31 +352,31 @@ def resolve_depreciation(
 
 def extend_depreciation_result(
     res: DepreciationResult,
-    extra_years: float,
+    extra_months: float,
     *,
     new_price: float | None = None,
 ) -> DepreciationResult:
     """Apply a manual useful-life extension after base depreciation resolution."""
     try:
-        extra = float(extra_years)
+        extra = float(extra_months)
     except (TypeError, ValueError):
         return res
-    if extra <= 0 or res.useful_life_years is None:
+    if extra <= 0 or res.useful_life_months is None:
         return res
 
-    useful_life = float(res.useful_life_years) + extra
+    useful_life_months = float(res.useful_life_months) + extra
     try:
         cost = float(new_price if new_price is not None else 0)
     except (TypeError, ValueError):
         cost = 0.0
 
     book_value = res.book_value
-    if res.age_years is not None and useful_life > 0 and cost > 0:
-        book_value = _book_value(cost, res.age_years, useful_life)
+    if res.age_months is not None and useful_life_months > 0 and cost > 0:
+        book_value = _book_value(cost, res.age_months, useful_life_months)
 
     return DepreciationResult(
-        age_years=res.age_years,
-        useful_life_years=useful_life,
+        age_months=res.age_months,
+        useful_life_months=useful_life_months,
         book_value=book_value,
         basis_label=DEP_BASIS_MANUAL,
         age_source=res.age_source,

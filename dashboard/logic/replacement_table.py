@@ -17,6 +17,7 @@ from dashboard.logic.depreciation import (
     DEP_BASIS_MANUAL,
     DEP_BASIS_UNKNOWN,
     extend_depreciation_result,
+    format_depreciation_months,
     life_replace_status,
     resolve_depreciation,
 )
@@ -129,30 +130,30 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None, 
         )
         eid = norm_equip_id(r["equipId"])
         override = life_overrides.get(eid) if life_overrides else None
-        extra_years = override.extra_years if override else 0.0
-        if extra_years > 0:
-            res = extend_depreciation_result(res, extra_years, new_price=r.get("newPrice"))
+        extra_months = override.extra_months if override else 0.0
+        if extra_months > 0:
+            res = extend_depreciation_result(res, extra_months, new_price=r.get("newPrice"))
         return pd.Series(
             {
-                "age_years": res.age_years,
-                "useful_life_years": res.useful_life_years,
+                "age_months": res.age_months,
+                "useful_life_months": res.useful_life_months,
                 "book_value": res.book_value,
                 "basis_label": res.basis_label,
-                "life_adj": extra_years,
+                "life_adj": extra_months,
             }
         )
 
     dep = agg.apply(_depreciation_row, axis=1)
-    agg["Age (yrs)"] = dep["age_years"]
-    agg["Useful Life (y)"] = dep["useful_life_years"]
+    agg["Age (mo)"] = dep["age_months"]
+    agg["Useful Life (mo)"] = dep["useful_life_months"]
     agg["Book Value"] = dep["book_value"]
     agg[DEP_BASIS_COLUMN] = dep["basis_label"]
-    agg["life_adj_years"] = dep["life_adj"]
+    agg["life_adj_months"] = dep["life_adj"]
 
     agg["Status"] = agg.apply(
         lambda r: C.combine_replace_status(
             C.replace_status(r["labor"], r["parts"], r["newPrice"]),
-            life_replace_status(r["Age (yrs)"], r["Useful Life (y)"]),
+            life_replace_status(r["Age (mo)"], r["Useful Life (mo)"]),
         ),
         axis=1,
     )
@@ -176,7 +177,7 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None, 
     )
 
     agg["building_display"] = agg["building"].map(display_building_name)
-    agg["Life adj."] = agg["life_adj_years"].map(format_life_adj)
+    agg["Life adj."] = agg["life_adj_months"].map(format_life_adj)
 
     table_data = agg.rename(
         columns={
@@ -199,18 +200,16 @@ def build_replacement_table(rep: pd.DataFrame, app_settings=None, filters=None, 
             "Total Cost",
             "New Price",
             PRICE_BASIS_COLUMN,
-            "Age (yrs)",
-            "Useful Life (y)",
+            "Age (mo)",
+            "Useful Life (mo)",
             "Life adj.",
             "Book Value",
             DEP_BASIS_COLUMN,
         ]
     ].copy()
 
-    for col in ("Age (yrs)", "Useful Life (y)"):
-        table_data[col] = table_data[col].apply(
-            lambda x: f"{x:.1f}" if pd.notna(x) else "—"
-        )
+    for col in ("Age (mo)", "Useful Life (mo)"):
+        table_data[col] = table_data[col].map(format_depreciation_months)
     table_data["Book Value"] = table_data["Book Value"].apply(
         lambda x: f"${x:,.2f}" if pd.notna(x) else "—"
     )
@@ -293,7 +292,7 @@ def replacement_life_editor_context(
     )
     eid = norm_equip_id(equip_id)
     override = life_overrides.get(eid) if life_overrides else None
-    extra = override.extra_years if override else 0.0
+    extra = override.extra_months if override else 0.0
     effective = (
         extend_depreciation_result(base, extra, new_price=new_price)
         if extra > 0
@@ -301,29 +300,28 @@ def replacement_life_editor_context(
     )
 
     repair_status = C.replace_status(labor, parts, new_price)
-    base_life_status = life_replace_status(base.age_years, base.useful_life_years)
+    base_life_status = life_replace_status(base.age_months, base.useful_life_months)
     effective_life_status = life_replace_status(
-        effective.age_years, effective.useful_life_years
+        effective.age_months, effective.useful_life_months
     )
     combined = C.combine_replace_status(repair_status, effective_life_status)
-
-    def _fmt_years(v):
-        return f"{v:.1f}" if v is not None and pd.notna(v) else "—"
 
     return {
         "equip_id": eid,
         "equipment_name": equipment_name or "",
-        "base_useful_life": base.useful_life_years,
-        "effective_useful_life": effective.useful_life_years,
-        "age_years": base.age_years,
-        "extra_years": extra,
+        "base_useful_life_months": base.useful_life_months,
+        "effective_useful_life_months": effective.useful_life_months,
+        "age_months": base.age_months,
+        "extra_months": extra,
         "note": override.note if override else "",
         "review_by": override.review_by if override else "",
         "repair_status": repair_status,
         "base_life_status": base_life_status,
         "effective_life_status": effective_life_status,
         "combined_status": combined,
-        "base_useful_life_label": _fmt_years(base.useful_life_years),
-        "effective_useful_life_label": _fmt_years(effective.useful_life_years),
-        "age_label": _fmt_years(base.age_years),
+        "base_useful_life_label": format_depreciation_months(base.useful_life_months),
+        "effective_useful_life_label": format_depreciation_months(
+            effective.useful_life_months
+        ),
+        "age_label": format_depreciation_months(base.age_months),
     }

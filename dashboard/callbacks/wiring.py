@@ -118,8 +118,8 @@ def _replace_life_summary_children(ctx: dict):
                 style={"marginBottom": 6},
             ),
             html.Div(
-                f"Age {ctx['age_label']} y · System useful life {ctx['base_useful_life_label']} y"
-                f" · Effective {ctx['effective_useful_life_label']} y",
+                f"Age {ctx['age_label']} · System useful life {ctx['base_useful_life_label']}"
+                f" · Effective {ctx['effective_useful_life_label']}",
                 style={"color": C.COLOR_TEXT_SECONDARY, "marginBottom": 6},
             ),
             html.Div(
@@ -557,7 +557,7 @@ def register_callbacks(app):
     @app.callback(
         Output("replace-life-panel", "style"),
         Output("replace-life-panel-summary", "children"),
-        Output("replace-life-extra-years", "value"),
+        Output("replace-life-extra-months", "value"),
         Output("replace-life-note", "value"),
         Output("replace-life-review-by", "value"),
         Input("replace-table", "selected_rows"),
@@ -596,7 +596,7 @@ def register_callbacks(app):
             labor=snap["labor"],
             parts=snap["parts"],
         )
-        extra_val = ctx["extra_years"] if ctx["extra_years"] > 0 else None
+        extra_val = int(round(ctx["extra_months"])) if ctx["extra_months"] > 0 else None
         return (
             _replace_life_panel_style(True),
             _replace_life_summary_children(ctx),
@@ -612,7 +612,7 @@ def register_callbacks(app):
         Input("replace-life-clear-btn", "n_clicks"),
         State("replace-table", "selected_rows"),
         State("replace-table", "data"),
-        State("replace-life-extra-years", "value"),
+        State("replace-life-extra-months", "value"),
         State("replace-life-note", "value"),
         State("replace-life-review-by", "value"),
         State("replace-life-overrides-version", "data"),
@@ -623,7 +623,7 @@ def register_callbacks(app):
         clear_clicks,
         selected_rows,
         table_data,
-        extra_years,
+        extra_months,
         note,
         review_by,
         version,
@@ -649,7 +649,7 @@ def register_callbacks(app):
             else:
                 upsert_life_override(
                     snap["equip_id"],
-                    extra_years,
+                    extra_months,
                     note=note or "",
                     review_by=review_by or "",
                 )
@@ -663,11 +663,11 @@ def register_callbacks(app):
                     labor=snap["labor"],
                     parts=snap["parts"],
                 )
-                extra = ctx["extra_years"]
+                extra = ctx["extra_months"]
                 if extra > 0:
                     msg = (
-                        f"Saved +{extra:g}y useful life for {snap['equip_id']} "
-                        f"(effective {ctx['effective_useful_life_label']} y)."
+                        f"Saved +{int(round(extra))} mo useful life for {snap['equip_id']} "
+                        f"(effective {ctx['effective_useful_life_label']})."
                     )
                 else:
                     msg = f"Removed useful-life extension for {snap['equip_id']}."

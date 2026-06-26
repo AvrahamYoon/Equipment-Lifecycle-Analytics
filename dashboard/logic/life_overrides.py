@@ -11,20 +11,20 @@ import pandas as pd
 from dashboard import constants as C
 from dashboard.taxonomy import norm_equip_id
 
-_CSV_COLUMNS = ("equipId", "extraYears", "note", "reviewBy", "updatedAt")
-_MAX_EXTRA_YEARS = 20.0
+_CSV_COLUMNS = ("equipId", "extraMonths", "note", "reviewBy", "updatedAt")
+_MAX_EXTRA_MONTHS = 240
 
 
 @dataclass(frozen=True)
 class LifeOverride:
     equip_id: str
-    extra_years: float
+    extra_months: float
     note: str = ""
     review_by: str = ""
     updated_at: str = ""
 
 
-def _coerce_extra_years(value) -> float:
+def _coerce_extra_months(value) -> float:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return 0.0
     try:
@@ -33,7 +33,24 @@ def _coerce_extra_years(value) -> float:
         return 0.0
     if n <= 0:
         return 0.0
-    return min(n, _MAX_EXTRA_YEARS)
+    return min(n, _MAX_EXTRA_MONTHS)
+
+
+def _legacy_extra_months(row) -> float:
+    """Read extraMonths, or convert legacy extraYears column to months."""
+    raw = row.get("extraMonths")
+    if raw is not None and not (isinstance(raw, float) and pd.isna(raw)) and str(raw).strip() != "":
+        return _coerce_extra_months(raw)
+    legacy_years = row.get("extraYears")
+    if legacy_years is None or (isinstance(legacy_years, float) and pd.isna(legacy_years)):
+        return 0.0
+    try:
+        years = float(legacy_years)
+    except (TypeError, ValueError):
+        return 0.0
+    if years <= 0:
+        return 0.0
+    return min(years * 12.0, _MAX_EXTRA_MONTHS)
 
 
 def _clean_text(value) -> str:
@@ -57,12 +74,12 @@ def load_life_overrides(path: str | None = None) -> dict[str, LifeOverride]:
     out: dict[str, LifeOverride] = {}
     for _, row in df.iterrows():
         eid = norm_equip_id(row.get("equipId"))
-        extra = _coerce_extra_years(row.get("extraYears"))
+        extra = _legacy_extra_months(row)
         if not eid or extra <= 0:
             continue
         out[eid] = LifeOverride(
             equip_id=eid,
-            extra_years=extra,
+            extra_months=extra,
             note=_clean_text(row.get("note")),
             review_by=_clean_text(row.get("reviewBy")),
             updated_at=_clean_text(row.get("updatedAt")),
@@ -80,12 +97,12 @@ def save_life_overrides(
     rows = []
     for eid in sorted(overrides):
         o = overrides[eid]
-        if o.extra_years <= 0:
+        if o.extra_months <= 0:
             continue
         rows.append(
             {
                 "equipId": eid,
-                "extraYears": round(o.extra_years, 2),
+                "extraMonths": int(round(o.extra_months)),
                 "note": o.note,
                 "reviewBy": o.review_by,
                 "updatedAt": o.updated_at,
@@ -97,7 +114,7 @@ def save_life_overrides(
 
 def upsert_life_override(
     equip_id,
-    extra_years,
+    extra_months,
     *,
     note: str = "",
     review_by: str = "",
@@ -110,13 +127,13 @@ def upsert_life_override(
         raise ValueError("Equipment ID is required")
 
     overrides = load_life_overrides(path)
-    extra = _coerce_extra_years(extra_years)
+    extra = _coerce_extra_months(extra_months)
     if extra <= 0:
         overrides.pop(eid, None)
     else:
         overrides[eid] = LifeOverride(
             equip_id=eid,
-            extra_years=extra,
+            extra_months=extra,
             note=_clean_text(note),
             review_by=_clean_text(review_by),
             updated_at=date.today().isoformat(),
@@ -125,9 +142,7 @@ def upsert_life_override(
     return overrides
 
 
-def format_life_adj(extra_years: float | None) -> str:
-    if extra_years is None or extra_years <= 0:
+def format_life_adj(extra_months: float | None) -> str:
+    if extra_months is None or extra_months <= 0:
         return "—"
-    if float(extra_years).is_integer():
-        return f"+{int(extra_years)}y"
-    return f"+{extra_years:.1f}y"
+    return f"+{int(round(float(extra_months)))} mo"
