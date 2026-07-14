@@ -34,6 +34,7 @@ _STATUS_PILL_HTML = {
 
 _BASIS_PILL_HTML = {
     "Accurate": '<span class="fm-pill fm-pill--accurate">Accurate</span>',
+    "Catalog": '<span class="fm-pill fm-pill--valuation">Catalog</span>',
     "Valuation": '<span class="fm-pill fm-pill--valuation">Valuation</span>',
     "Estimated": '<span class="fm-pill fm-pill--estimated">Estimated</span>',
     "—": '<span class="fm-pill fm-pill--unknown">—</span>',

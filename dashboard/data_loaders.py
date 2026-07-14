@@ -10,7 +10,9 @@ from valuation import (
     apply_new_prices_to_repairs,
     build_keyword_prices_from_service,
     build_service_price_map,
+    load_custodial_pricing_table,
     load_purchase_price_map,
+    load_purchase_year_map,
     load_valuation_sheet,
     merge_valuation_sheet,
 )
@@ -279,13 +281,20 @@ try:
         id_col="equipIdNorm",
     )
     _purchase_prices = load_purchase_price_map(C.PURCHASE_CSV)
+    _purchase_years = load_purchase_year_map(C.PURCHASE_CSV)
+    _custodial_pricing = load_custodial_pricing_table(C.CUSTODIAL_PRICING_CSV)
     _valuation_sheet = merge_valuation_sheet(
         load_valuation_sheet(C.VALUATION_CSV),
         build_keyword_prices_from_service(df_service),
     )
     _service_prices = build_service_price_map(df_service)
     df_repairs = apply_new_prices_to_repairs(
-        df_repairs, _purchase_prices, _service_prices, _valuation_sheet
+        df_repairs,
+        _purchase_prices,
+        _service_prices,
+        _valuation_sheet,
+        purchase_year_map=_purchase_years,
+        custodial_table=_custodial_pricing,
     )
     _equip_meta_lookup = build_equip_meta_lookup(df_equip)
     _purchase_depreciation_stats = build_purchase_depreciation_stats(
