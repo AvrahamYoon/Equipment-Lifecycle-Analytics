@@ -594,6 +594,355 @@ def lookup_valuation_price(equipment_name, sheet: ValuationSheet | None) -> floa
     return _find_price_for_keyword(sheet, key)
 
 
+# --- Custodial catalog pricing (year-specific, fuzzy model match) -----------------
+
+_CUSTODIAL_STOPWORDS = frozenset(
+    {
+        "auto",
+        "scrubber",
+        "commercial",
+        "upright",
+        "vacuum",
+        "vac",
+        "machine",
+        "floor",
+        "walk",
+        "behind",
+        "ride",
+        "on",
+        "stand",
+        "spot",
+        "large",
+        "carpet",
+        "extractor",
+        "head",
+        "detail",
+        "self",
+        "contained",
+        "portable",
+        "truck",
+        "mount",
+        "battery",
+        "powered",
+        "corded",
+        "backpack",
+        "backpacks",
+        "heated",
+        "maintainer",
+        "restroom",
+        "touch",
+        "no",
+        "wet",
+        "dry",
+        "micro",
+        "orbital",
+        "propane",
+        "spray",
+        "rotary",
+        "fuel",
+        "inch",
+        "mini",
+        "team",
+        "pro",
+        "chem",
+        "nb",
+        "btl",
+        "nbtl",
+        "atv",
+        "xl",
+        "cleaning",
+        "agitator",
+        "burnisher",
+        "buffer",
+        "extract",
+        "upholstery",
+        "the",
+        "and",
+        "with",
+        "hp",
+        "mx3",
+        "brs",
+        "fuel",
+        "in",
+        "m18",
+        "0895",
+        "versatile",
+        "prochem",
+        "hydro",
+        "force",
+        "nautilus",
+        "square",
+        "doodle",
+        "wrangler",
+        "stallion",
+        "thoroughbred",
+        "rally",
+        "rev3",
+        "rx20",
+        "shovelnose",
+        "micromatic",
+        "iscrub",
+        "ivac",
+        "imop",
+        "kleenrite",
+        "mac",
+        "pzu",
+    }
+)
+
+_CUSTODIAL_BRAND_TOKENS = frozenset(_BRAND_ALIASES) | frozenset(_KNOWN_BRAND_SLUGS)
+
+
+@dataclass
+class CustodialModel:
+    name: str
+    norm_name: str
+    category: str
+    prices_by_year: dict[int, float]
+    tokens: frozenset[str]
+
+
+@dataclass
+class CustodialPricingTable:
+    models: list[CustodialModel]
+    norm_names_sorted: list[str]
+    by_norm: dict[str, CustodialModel]
+
+
+def _custodial_distinctive_tokens(norm: str) -> frozenset[str]:
+    tokens: set[str] = set()
+    for raw in norm.split():
+        token = raw.strip()
+        if not token or token in _CUSTODIAL_STOPWORDS:
+            continue
+        if re.search(r"\d", token):
+            tokens.add(token)
+            continue
+        if token in _CUSTODIAL_BRAND_TOKENS:
+            tokens.add(token)
+    return frozenset(tokens)
+
+
+def _custodial_price_for_year(prices: dict[int, float], year: int) -> float | None:
+    if not prices:
+        return None
+    if year in prices:
+        return prices[year]
+    years = sorted(prices)
+    if year < years[0]:
+        return prices[years[0]]
+    if year > years[-1]:
+        return prices[years[-1]]
+    closest = min(years, key=lambda y: abs(y - year))
+    return prices[closest]
+
+
+def load_custodial_pricing_table(path: str) -> CustodialPricingTable:
+    """Load year-indexed custodial catalog prices keyed by standard model name."""
+    if not path or not os.path.isfile(path):
+        return CustodialPricingTable([], [], {})
+
+    try:
+        df = pd.read_csv(
+            path,
+            header=None,
+            names=["model", "category", "year", "price"],
+            encoding_errors="replace",
+        )
+    except OSError:
+        return CustodialPricingTable([], [], {})
+
+    grouped: dict[str, dict] = {}
+    for _, row in df.iterrows():
+        model = str(row.get("model", "")).strip()
+        if not model:
+            continue
+        year = parse_purchase_year(row.get("year"))
+        price = parse_dollar_amount(row.get("price"))
+        if year is None or price is None:
+            continue
+        bucket = grouped.setdefault(
+            model,
+            {"category": str(row.get("category", "")).strip(), "prices": {}},
+        )
+        bucket["prices"][year] = price
+
+    models: list[CustodialModel] = []
+    by_norm: dict[str, CustodialModel] = {}
+    for name, payload in grouped.items():
+        norm_name = norm_equipment_name(name)
+        if not norm_name:
+            continue
+        entry = CustodialModel(
+            name=name,
+            norm_name=norm_name,
+            category=payload["category"],
+            prices_by_year=dict(payload["prices"]),
+            tokens=_custodial_distinctive_tokens(norm_name),
+        )
+        models.append(entry)
+        by_norm[norm_name] = entry
+
+    norm_names_sorted = sorted(by_norm.keys(), key=len, reverse=True)
+    return CustodialPricingTable(models=models, norm_names_sorted=norm_names_sorted, by_norm=by_norm)
+
+
+def _match_ice_walk_behind_scrubber(
+    norm: str, table: CustodialPricingTable
+) -> CustodialModel | None:
+    if not re.search(r"\bice\b", norm):
+        return None
+    size_m = re.search(r"\b(1[3-9]|2[0-9]|3[0-2])\b", norm)
+    if not size_m:
+        return None
+    target = int(size_m.group(1))
+    candidates: list[tuple[int, CustodialModel]] = []
+    for model in table.models:
+        if "walk-behind scrubber" not in model.category.lower():
+            continue
+        mm = re.search(r"\bice i(\d+)\b", model.norm_name)
+        if not mm:
+            continue
+        candidates.append((int(mm.group(1)), model))
+    if not candidates:
+        return None
+    best_size, best_model = min(candidates, key=lambda item: abs(item[0] - target))
+    if abs(best_size - target) > 2:
+        return None
+    return best_model
+
+
+def _match_custodial_substring(norm: str, table: CustodialPricingTable) -> CustodialModel | None:
+    best: CustodialModel | None = None
+    best_len = 0
+    for model in table.models:
+        candidate = model.norm_name
+        if len(candidate) < 8:
+            continue
+        if candidate in norm or norm in candidate:
+            if len(candidate) > best_len:
+                best_len = len(candidate)
+                best = model
+    return best
+
+
+def _match_custodial_by_tokens(norm: str, table: CustodialPricingTable) -> CustodialModel | None:
+    name_tokens = _custodial_distinctive_tokens(norm)
+    if not name_tokens:
+        return None
+
+    best: CustodialModel | None = None
+    best_score = 0.0
+    for model in table.models:
+        if not model.tokens:
+            continue
+        overlap = model.tokens & name_tokens
+        if not overlap:
+            continue
+        non_digit_overlap = {t for t in overlap if not re.fullmatch(r"\d+[a-z]*", t)}
+        if not non_digit_overlap:
+            continue
+        model_digit_tokens = {t for t in model.tokens if re.search(r"\d", t)}
+        if model_digit_tokens and not (overlap & model_digit_tokens):
+            continue
+        score = len(overlap) / len(model.tokens)
+        if score < 0.5:
+            continue
+        if score > best_score or (
+            score == best_score and best and len(model.norm_name) > len(best.norm_name)
+        ):
+            best_score = score
+            best = model
+    return best
+
+
+def match_custodial_model(
+    equipment_name: str, table: CustodialPricingTable | None
+) -> CustodialModel | None:
+    """Map a system equipment description to a custodial catalog model name."""
+    if not table or not table.models:
+        return None
+    norm = _clean_norm(norm_equipment_name(equipment_name))
+    if not norm:
+        return None
+
+    if "versamatic" in norm:
+        for model in table.models:
+            if "versamatic" in model.norm_name:
+                return model
+
+    if "kaivac" in norm:
+        for model in table.models:
+            if "kaivac" in model.norm_name:
+                return model
+
+    if re.search(r"\bpuzzi\b|\bpriza\b", norm):
+        for model in table.models:
+            if "puzzi" in model.norm_name:
+                return model
+
+    if "chariot" in norm:
+        for model in table.models:
+            if "chariot" in model.norm_name and "chariot" in norm:
+                if "iscrub" in norm and "iscrub" in model.norm_name:
+                    return model
+                if "ivac" in norm and "ivac" in model.norm_name:
+                    return model
+        for model in table.models:
+            if "chariot" in model.norm_name:
+                return model
+
+    ice = _match_ice_walk_behind_scrubber(norm, table)
+    if ice:
+        return ice
+
+    substring = _match_custodial_substring(norm, table)
+    if substring:
+        return substring
+
+    return _match_custodial_by_tokens(norm, table)
+
+
+def lookup_custodial_price(
+    equipment_name: str,
+    purchase_year: int | None,
+    table: CustodialPricingTable | None,
+) -> float | None:
+    if purchase_year is None or table is None:
+        return None
+    model = match_custodial_model(equipment_name, table)
+    if not model:
+        return None
+    return _custodial_price_for_year(model.prices_by_year, int(purchase_year))
+
+
+def load_purchase_year_map(path: str) -> dict[str, int]:
+    """Map normalized equipment ID → purchase year from ``purchase.csv``."""
+    if not path or not os.path.isfile(path):
+        return {}
+    try:
+        df = pd.read_csv(path, encoding_errors="replace")
+    except OSError:
+        return {}
+    if df.empty:
+        return {}
+
+    id_col = pick_column(df, "ID #", "ID", "Equipment ID", "EquipmentId")
+    year_col = pick_column(df, "pur.", "pur", "Purchase Year", "Year", "Purch. Date")
+    if not id_col or not year_col:
+        return {}
+
+    out: dict[str, int] = {}
+    for _, row in df.iterrows():
+        eid = norm_equip_id(row.get(id_col))
+        if not eid or eid in out:
+            continue
+        year = parse_purchase_year(row.get(year_col))
+        if year is not None:
+            out[eid] = year
+    return out
+
+
 # --- Replacement pricing (dashboard) --------------------------------------------
 
 def load_purchase_price_map(path: str) -> dict[str, float]:
@@ -651,12 +1000,14 @@ def build_service_price_map(df_service: pd.DataFrame) -> dict[str, float]:
 
 
 PRICE_SOURCE_PURCHASE = "purchase"
+PRICE_SOURCE_CUSTODIAL = "custodial"
 PRICE_SOURCE_VALUATION = "valuation"
 PRICE_SOURCE_SERVICE = "service"
 PRICE_SOURCE_NONE = ""
 
 PRICE_SOURCE_LABEL = {
     PRICE_SOURCE_PURCHASE: "Accurate",
+    PRICE_SOURCE_CUSTODIAL: "Catalog",
     PRICE_SOURCE_VALUATION: "Valuation",
     PRICE_SOURCE_SERVICE: "Estimated",
     PRICE_SOURCE_NONE: "—",
@@ -664,10 +1015,29 @@ PRICE_SOURCE_LABEL = {
 
 PRICE_BASIS_COLUMN = "Price basis"
 PRICE_BASIS_TOOLTIP = (
-    "Purchase.csv cost by equipment ID; else Original Purchase Cost from "
+    "Purchase.csv cost by equipment ID; else custodial catalog price by purchase "
+    "year when purchase cost is missing; else Original Purchase Cost from "
     "Equipment Valuation Sheet.csv (regenerate with "
     "python -m valuation when data changes); else service estimated price."
 )
+
+
+def _resolve_custodial_price(
+    equip_id,
+    equipment_name,
+    purchase_map: dict[str, float],
+    purchase_year_map: dict[str, int] | None,
+    custodial_table: CustodialPricingTable | None,
+) -> float | None:
+    eid = norm_equip_id(equip_id)
+    if eid and eid in purchase_map:
+        return None
+    if not purchase_year_map or not custodial_table:
+        return None
+    year = purchase_year_map.get(eid) if eid else None
+    if year is None:
+        return None
+    return lookup_custodial_price(equipment_name, year, custodial_table)
 
 
 def resolve_price_source(
@@ -676,10 +1046,17 @@ def resolve_price_source(
     purchase_map: dict[str, float],
     service_map: dict[str, float],
     valuation_sheet: ValuationSheet | None = None,
+    *,
+    purchase_year_map: dict[str, int] | None = None,
+    custodial_table: CustodialPricingTable | None = None,
 ) -> str:
     eid = norm_equip_id(equip_id)
     if eid and eid in purchase_map:
         return PRICE_SOURCE_PURCHASE
+    if _resolve_custodial_price(
+        equip_id, equipment_name, purchase_map, purchase_year_map, custodial_table
+    ) is not None:
+        return PRICE_SOURCE_CUSTODIAL
     if lookup_valuation_price(equipment_name, valuation_sheet) is not None:
         return PRICE_SOURCE_VALUATION
     if eid and eid in service_map:
@@ -693,10 +1070,18 @@ def resolve_new_price(
     purchase_map: dict[str, float],
     service_map: dict[str, float],
     valuation_sheet: ValuationSheet | None = None,
+    *,
+    purchase_year_map: dict[str, int] | None = None,
+    custodial_table: CustodialPricingTable | None = None,
 ) -> float:
     eid = norm_equip_id(equip_id)
     if eid and eid in purchase_map:
         return purchase_map[eid]
+    custodial = _resolve_custodial_price(
+        equip_id, equipment_name, purchase_map, purchase_year_map, custodial_table
+    )
+    if custodial is not None:
+        return custodial
     val = lookup_valuation_price(equipment_name, valuation_sheet)
     if val is not None:
         return val
@@ -710,6 +1095,9 @@ def apply_new_prices_to_repairs(
     purchase_map: dict[str, float],
     service_map: dict[str, float],
     valuation_sheet: ValuationSheet | None = None,
+    *,
+    purchase_year_map: dict[str, int] | None = None,
+    custodial_table: CustodialPricingTable | None = None,
 ) -> pd.DataFrame:
     if df.empty:
         out = df.copy()
@@ -723,10 +1111,22 @@ def apply_new_prices_to_repairs(
         name = row[equip_col] if equip_col else ""
         eid = row["equipIdNorm"]
         price = resolve_new_price(
-            eid, name, purchase_map, service_map, valuation_sheet
+            eid,
+            name,
+            purchase_map,
+            service_map,
+            valuation_sheet,
+            purchase_year_map=purchase_year_map,
+            custodial_table=custodial_table,
         )
         source = resolve_price_source(
-            eid, name, purchase_map, service_map, valuation_sheet
+            eid,
+            name,
+            purchase_map,
+            service_map,
+            valuation_sheet,
+            purchase_year_map=purchase_year_map,
+            custodial_table=custodial_table,
         )
         return price, source
 
