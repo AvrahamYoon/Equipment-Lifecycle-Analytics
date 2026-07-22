@@ -1,7 +1,7 @@
 {
   "annualPartsBudget": 80000,
-  "baseAvailDays": 311,
-  "hoursPerDay": 4.0,
+  "baseAvailDays": 243,
+  "hoursPerDay": 3.5,
   "iconKpiCompleted": "\u2705",
   "iconKpiLabor": "\ud83d\udc64",
   "iconKpiParts": "\u2699\ufe0f",
@@ -19,8 +19,14 @@
   "iconReplaceTitle": "\ud83d\udea6",
   "monthlyPartsBudget": 6667,
   "settingsSchemaVersion": 2,
-  "staffCapacityByMonth": {},
-  "staffCount": 4,
+  "staffCapacityByMonth": {
+    "2026-05": {
+      "hoursPerDay": 3.5,
+      "staffCount": 2,
+      "workDays": 20
+    }
+  },
+  "staffCount": 2,
   "weekStartsOn": "sunday",
   "workDays": 20
 }
